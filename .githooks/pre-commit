@@ -14,3 +14,4 @@ case "$branch" in
     ;;
   *) : ;;  # private branches are not gated
 esac
+
