@@ -1,66 +1,61 @@
 # Value & Positioning Method (a mentor archetype)
 
-A general, transferable method for **bottom-fishing quality at a discount and sizing with
-discipline** — the "value + institutional-positioning" school distilled into rules the desk can
-apply. This ships as a *starter* reference; if you personally study a specific investor/mentor,
-capture their transferable ideas here and keep any of their private positions in a git-ignored
-overlay (`skills/private/`), not in this shared file.
+A transferable method for **bottom-fishing quality at a discount and sizing with discipline** — the
+"value + institutional-positioning" school as desk rules. Ships as a *starter*. If you study a
+specific investor/mentor, capture their transferable ideas here; keep their private positions in a
+git-ignored overlay (`skills/private/`), not this shared file.
 
 ## The core edge: think like the institution, not the crowd
 
-Don't just analyze the company — analyze *who owns it, who is forced to buy or sell, and what the
-smart money is doing*. For each idea ask:
-- Where is institutional positioning — crowded long, or washed-out and hated?
-- Is the current price driven by fundamentals or by forced/emotional flows (tax-loss selling, index
-  rebalancing, margin calls, panic)?
-- What would make big money *have* to come in (guidance, a narrative shift, a sector rotation)?
+Analyze *who owns it, who is forced to buy or sell, and what smart money is doing* — not just the
+company. For each idea:
+- Positioning — crowded long, or washed-out and hated?
+- Is price driven by fundamentals or forced/emotional flows (tax-loss selling, index rebalancing,
+  margin calls, panic)?
+- What forces big money in — guidance, narrative shift, sector rotation?
 
 ## Selection screen: undervalued + quality + a credible 2x
 
-Operationalize as a Core-sleeve screen:
-1. **Quality business** — real product, durable demand, ideally category leadership (survives a
-   drawdown and compounds).
-2. **Undervalued right now** — trading well below a defensible fair value, often because it's out
-   of favor or caught in a broad selloff.
-3. **Credible path to ~2x in months–1 year** — you must be able to write the *specific* route to
-   ~100% upside (multiple re-rating + earnings growth + catalyst). If you can't articulate the path,
-   it isn't one of these setups.
-4. **Catalyst / timing** — a reason it re-rates on a reasonable horizon, not "eventually."
+A Core-sleeve screen:
+1. **Quality business** — real product, durable demand, ideally category leadership; survives a
+   drawdown and compounds.
+2. **Undervalued now** — well below defensible fair value, often out of favor or in a broad selloff.
+3. **Credible ~2x in months–1 year** — write the *specific* route to ~100% (multiple re-rating +
+   earnings growth + catalyst). No articulable path = not this setup.
+4. **Catalyst / timing** — a reason it re-rates on a horizon, not "eventually."
 
 ## Deep research: the business AND its leaders
 
-For high-conviction ideas add a **management read**: founder/CEO track record and incentives,
-capital-allocation history, insider ownership and recent insider buying/selling, execution vs. past
-guidance, and whether leadership has navigated hard cycles before. Great operators in a beaten-down
-quality name is the archetype (a "CEO turnaround" is a distinct, repeatable setup to hunt).
+For high-conviction ideas add a **management read**: CEO track record and incentives,
+capital-allocation history, insider ownership and recent buying/selling, execution vs. past
+guidance, prior hard-cycle navigation. Great operators in a beaten-down quality name — a "CEO
+turnaround" — is a distinct, repeatable setup.
 
 ## Position discipline (hard rules)
 
-- **No single position exceeds ~25% of the portfolio.** A hard cap, never a target — even the
-  highest-conviction idea is sized within it.
+- **No single position exceeds ~25% of the portfolio.** A hard cap, never a target.
 - **Concentrated but bounded.** Fewer, higher-conviction names than a broad index — but the 25%
-  ceiling and a per-idea *risk* cap (e.g. 2%) both apply. Position-size cap ≠ risk cap: one governs
-  how much capital sits in a name, the other how much you can lose if the stop hits.
-- **Scale in and out; don't lump.** Build into weakness in tranches and trim into strength.
-- **Conviction-tiered sizing** (illustrative default weights, not a mandate):
-  high-conviction large-cap ~7–8%; higher-beta growth/semis ~4–5%; dividend/defensive ~3–4%;
-  speculative ~1–2%. Real targets are single digits; 25% is only a ceiling.
+  ceiling and a per-idea *risk* cap (e.g. 2%) both apply. Size cap ≠ risk cap: one governs capital
+  in a name, the other how much you lose if the stop hits.
+- **Scale in and out; don't lump.** Build into weakness in tranches; trim into strength.
+- **Conviction-tiered sizing** (illustrative defaults, not a mandate): high-conviction large-cap
+  ~7–8%; higher-beta growth/semis ~4–5%; dividend/defensive ~3–4%; speculative ~1–2%. Real targets
+  are single digits; 25% is only a ceiling.
 
 ## Cash is a position
 
-Hold meaningful dry powder (~30% is a common default) and deploy it into quality *during
-pullbacks* — treat a broad selloff as the time to buy, not to freeze. Cash is a deliberate hedge,
-not leftover.
+Hold meaningful dry powder (~30% default) and deploy into quality *during pullbacks* — a broad
+selloff is the time to buy, not freeze. Cash is a deliberate hedge, not leftover.
 
 ## Discipline principles (the mindset layer)
 
-- **Patience over activity.** Don't overtrade; protect gains and wait for real opportunities.
-- **Buy weakness in quality; don't chase strength** — the chase is where retail gets trapped.
-- **Let winners compound.** The biggest returns come from *holding* quality through noise, judged by
-  the long-run thesis, not from churning.
+- **Patience over activity.** Don't overtrade; protect gains, wait for real opportunities.
+- **Buy weakness in quality; don't chase strength** — the chase traps retail.
+- **Let winners compound.** Biggest returns come from *holding* quality through noise, judged by the
+  long-run thesis.
 - **Diversify across sectors** so one shock can't sink the book, even within a concentrated style.
-- **Options, if used, are small and long-dated** on high-conviction names; short-dated options are
-  gambling. Puts are brief tactical hedges at highs, not a standing short book.
+- **Options, if used, are small and long-dated** on high-conviction names; short-dated = gambling.
+  Puts are brief tactical hedges at highs, not a standing short book.
 
-> **Make it yours.** This is a starter method. Replace the specifics with the discipline you
-> actually follow, and keep any private book/track record in `skills/private/` (git-ignored).
+> **Make it yours.** A starter method. Replace the specifics with the discipline you actually
+> follow; keep any private book/track record in `skills/private/` (git-ignored).

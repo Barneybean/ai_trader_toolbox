@@ -1,14 +1,14 @@
 # Nuclear / power / clean energy — playbook
 
 Reactors/SMRs, utilities/IPPs, and storage — increasingly the *physical bottleneck* of the AI
-buildout (`../thematic-waves.md`).
+buildout (`skills/edge/thematic-waves.md`).
 
 **What sets the price:**
 - **Pre-revenue reactor/SMR** (OKLO, SMR, NNE): regulatory milestones (**NRC licensing** stage),
   first-power/commercialization **timeline**, order backlog/LOIs/PPAs, funding & **dilution
-  runway**, government (DOE) support.
-- **IPPs / utilities** (VST): power-demand growth (**AI data-center load**), PPA/capacity
-  pricing, generation mix, rate base.
+  runway**, DOE support.
+- **IPPs / utilities** (VST): power-demand growth (**AI data-center load**), PPA/capacity pricing,
+  generation mix, rate base.
 - **Storage** (FLNC): bookings/backlog, margins, project pipeline.
 
 **Catalysts to hunt (+ source):** NRC design-approval/licensing steps, first-fuel/first-power

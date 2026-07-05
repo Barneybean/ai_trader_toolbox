@@ -1,12 +1,12 @@
 # Sector Playbooks — index
 
-Generic fundamentals (P/E, growth) miss the real drivers, because every industry prices on
-different things — a semi on **process-node yield & customer wins**, a clinical biotech on
-**trial readouts & months of cash**, a fintech on the **product-led flywheel**. Route each
-candidate to the playbook for its industry (read `sector`/`industry` from
-`get_equity_fundamentals`), and answer that playbook's questions from primary sources before
-forming a view. This is the engine behind `skills/edge/variant-perception.md`: most under-priced edges live
-in a sector-specific fact the generic screen never sees.
+Generic fundamentals (P/E, growth) miss the real drivers — every industry prices on different
+things: a semi on **process-node yield & customer wins**, a clinical biotech on **trial
+readouts & months of cash**, a fintech on the **product-led flywheel**. Route each candidate to
+its industry's playbook (read `sector`/`industry` from `get_equity_fundamentals`) and answer
+that playbook's questions from primary sources before forming a view. This is the engine behind
+`skills/edge/variant-perception.md`: most under-priced edges live in a sector-specific fact the
+generic screen never sees.
 
 ## Coverage (one file per sector — scalable)
 
@@ -29,13 +29,13 @@ Don't grow a monolith. If a name spans sectors, use both.
   **bull/base/bear scenario valuation**. Plus the CEO's $23M open-market buy at ~$23
   (`skills/edge/smart-money.md`).
 - **Moderna at ~$20 — a biotech pipeline + cash-floor story** (`sectors/biotech-pharma.md`):
-  rNPV of the pipeline + cash ≈/> market cap (pipeline priced at zero) + catalysts → deep
+  rNPV of pipeline + cash ≈/> market cap (pipeline priced at zero) + catalysts → deep
   undervaluation. Ran to $70+.
 
-## How every playbook is structured (so they're interchangeable)
+## How every playbook is structured (interchangeable)
 
-Each answers: (1) **what one or two variables set the price**, (2) **the dated catalysts** and
-the primary source that reveals each first, (3) **how the sector is valued** (which multiple/
+Each answers: (1) **the one or two variables that set the price**, (2) **the dated catalysts**
+and the primary source that reveals each first, (3) **how the sector is valued** (which multiple/
 model, on what earnings base) and the mispricing signal, (4) the **sector-specific red flags**,
 (5) the **primary sources**, and (6) the **variant angle** — what industry insiders track that
 generalists miss.
