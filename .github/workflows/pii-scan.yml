@@ -18,3 +18,4 @@ jobs:
           python-version: "3.x"
       - name: Scan tracked files for PII / credentials
         run: python3 scripts/scan_pii.py
+
