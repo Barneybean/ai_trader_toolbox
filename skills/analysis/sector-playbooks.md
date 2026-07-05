@@ -22,6 +22,10 @@ generic screen never sees.
 **Add a sector:** copy `sectors/_TEMPLATE.md` → `sectors/<name>.md`, fill it in, add a row here.
 Don't grow a monolith. If a name spans sectors, use both.
 
+**This table is community-built.** The live coverage map and most-wanted list are in
+`sectors/README.md`; contributing a playbook upstream is the project's flagship contribution
+(quality bar in `CONTRIBUTING.md`). Every merged playbook gives every desk a specialist.
+
 ## The two archetypes to hit (the standard)
 
 - **Intel — a semis process/catalyst story** (`sectors/semiconductors.md`): is 18A working, how
