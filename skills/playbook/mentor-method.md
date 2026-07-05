@@ -59,3 +59,4 @@ selloff is the time to buy, not freeze. Cash is a deliberate hedge, not leftover
 
 > **Make it yours.** A starter method. Replace the specifics with the discipline you actually
 > follow; keep any private book/track record in `skills/private/` (git-ignored).
+
