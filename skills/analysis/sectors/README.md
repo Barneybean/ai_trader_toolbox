@@ -1,9 +1,9 @@
 # Sector playbooks — coverage map & wanted list
 
 This folder is the desk's **industry brain** — one playbook per sector, each answering what a
-specialist would ask (see [`_TEMPLATE.md`](_TEMPLATE.md)). It is also the heart of the project's
-**knowledge commons**: playbooks are contributed by people who actually know the industry,
-reviewed in the open against a named quality bar, and read by every desk built on this repo.
+specialist would ask (see [`_TEMPLATE.md`](_TEMPLATE.md)). Playbooks are community-contributed and
+reviewed in the open against a named quality bar. For single-name structure, see the stock
+playbooks in [`../stocks/`](../stocks/).
 
 ## ✅ Covered
 
@@ -18,8 +18,8 @@ reviewed in the open against a named quality bar, and read by every desk built o
 
 ## 🙏 Most wanted
 
-If you've worked in or seriously traded one of these, an hour of your knowledge gives every desk
-downstream a specialist it didn't have. Claim one by opening a **playbook proposal** issue.
+If you've worked in or seriously traded one of these, claim it by opening a **playbook proposal**
+issue.
 
 | Sector | The read a generalist misses | Status |
 |---|---|---|
