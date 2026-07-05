@@ -22,3 +22,4 @@ For each tracked name:
 
 > Keep it small and honest — a watchlist is a queue of *pre-researched* ideas, not a wishlist. The
 > desk prioritizes these but will surface a stronger field idea and say why it beats the list.
+
