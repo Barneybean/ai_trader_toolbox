@@ -129,6 +129,11 @@ Then point your agent at the skill and ask for a run:
 - **Codex / any AGENTS.md agent** — [`AGENTS.md`](AGENTS.md) routes it in.
 - See [`PORTABILITY.md`](PORTABILITY.md) to wire every runtime to one source folder.
 
+> 💡 **Use a CLI agent (Claude Code or Codex), not a desktop app.** Desktop apps run in a
+> restricted sandbox that limits broker connectors, shell/script execution, and order placement — so
+> the agentic-trading loop often **won't work** there. The CLI can run the engines, hold the broker
+> connection, and place confirmed orders end-to-end. Run the desk from a terminal.
+
 > *"Do a desk run on NVDA."*  ·  *"Review my watchlist."*  ·  *"Short- and long-run call on INTC?"*
 
 The desk pulls data, runs the pipeline, and returns a ranked, risk-checked report — or an honest
@@ -174,6 +179,18 @@ your fork's public history.
 | **Robinhood** | ✅ working (via connector) | Quotes, historicals, fundamentals, positions, confirm-before-order execution. |
 | **Interactive Brokers** | 🔌 planned | Adapter interface + config slot ship now; implementation welcome. |
 | **Futu / moomoo** | 🔌 planned | Same. |
+
+### Robinhood: connect your AI agent (agentic trading)
+
+Robinhood exposes an **agentic trading** connector that lets an AI agent read your data and place
+orders (with confirmation). Follow Robinhood's official setup:
+
+➡️ **[Robinhood — Agentic Trading Overview → *Connect your AI agent*](https://robinhood.com/us/en/support/articles/agentic-trading-overview/#ConnectyourAIagent)**
+
+> 💡 **Do this from a CLI agent (Claude Code or Codex), not a desktop app.** The desktop sandbox
+> commonly blocks the connector and order placement, so agentic trading may not work there at all.
+> Enable the connector, then put the account you authorize into `config.local.toml` (git-ignored).
+> The desk still **confirms every order with you before placing it.**
 
 The design goal is **one broker-adapter interface** — add a broker by implementing a single class.
 See the [roadmap](#️-roadmap) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
