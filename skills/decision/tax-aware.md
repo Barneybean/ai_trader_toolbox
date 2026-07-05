@@ -42,3 +42,4 @@ When a holding is a loser whose thesis has weakened:
 | Losing position, weak thesis, have gains to offset | Consider harvesting; avoid rebuy 31+ days |
 | Want to rotate but both names similar rank | Don't — turnover costs tax; hold (see skills/decision/strategies.md) |
 | Tactical (short-term) idea with thin edge | Skip — ordinary-income tax + spread eats it |
+
