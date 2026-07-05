@@ -24,3 +24,4 @@ Re-validate against live data — a heuristic is a prior, not a fact.
 
 > Add your own, delete what you don't believe, and cite them in the report so your reasoning is
 > traceable.
+
