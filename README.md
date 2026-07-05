@@ -103,7 +103,7 @@ through.
 
 ### 👥 Analyst Team
 Four independent lenses, each doing primary-source work (details in [`skills/decision/roles.md`](skills/decision/roles.md)):
-- **Fundamental** — business quality, valuation, strategy & roadmap, management read, scenario targets.
+- **Fundamental** — business quality, valuation, strategy & product pipeline, management read, scenario targets.
 - **Quant** — trend/momentum/volume, the **support & resistance ("pressure") map**, ATR-scaled RR, and the **chip / cost-basis distribution (筹码)** + Wyckoff phase.
 - **Sentiment / News** — dated catalysts, positioning, insider flows, and *what isn't in the narrative yet*.
 - **Macro / Regime** — Fed path, yields, VIX, breadth; a crisis playbook when the tape breaks.
