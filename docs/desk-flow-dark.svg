@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 780" font-family="ui-sans-serif,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#0f172a" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- agent -->
+  <rect x="280" y="18" width="400" height="64" rx="12" fill="#322054" stroke="#a78bfa" stroke-width="1.6" filter="url(#sh)"/>
+  <text x="480" y="44" text-anchor="middle" font-size="15" font-weight="700" fill="#ddd6fe">🤖 Your AI coding agent</text>
+  <text x="480" y="64" text-anchor="middle" font-size="11.5" fill="#94a3b8">Claude Code · Codex · any AGENTS.md agent</text>
+  <line x1="480" y1="84" x2="480" y2="120" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="492" y="106" font-size="10.5" fill="#94a3b8">reads &amp; orchestrates</text>
+
+  <!-- desk container -->
+  <rect x="30" y="124" width="900" height="520" rx="14" fill="#1e293b" fill-opacity="0.5" stroke="#475569" stroke-width="1.4" stroke-dasharray="5 5"/>
+  <text x="56" y="154" font-size="13" font-weight="700" fill="#94a3b8">🏛️ THE DESK — SKILL.md + skills/</text>
+
+  <!-- pipeline row -->
+  <rect x="58" y="176" width="186" height="70" rx="10" fill="#1e2a4a" stroke="#60a5fa" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="151" y="205" text-anchor="middle" font-size="13.5" font-weight="700" fill="#bfdbfe">🌍 Macro / Regime</text>
+  <text x="151" y="226" text-anchor="middle" font-size="11" fill="#94a3b8">sets the weather</text>
+
+  <rect x="272" y="176" width="186" height="70" rx="10" fill="#1e2a4a" stroke="#60a5fa" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="365" y="205" text-anchor="middle" font-size="13.5" font-weight="700" fill="#bfdbfe">🌊 Thematic Wave</text>
+  <text x="365" y="226" text-anchor="middle" font-size="11" fill="#94a3b8">where capital rotates</text>
+
+  <rect x="486" y="176" width="186" height="70" rx="10" fill="#1e2a4a" stroke="#60a5fa" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="579" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#bfdbfe">📊 Quant / Chip Engine</text>
+  <text x="579" y="226" text-anchor="middle" font-size="11" fill="#94a3b8">levels · RR · chip distribution</text>
+
+  <rect x="700" y="176" width="186" height="70" rx="10" fill="#1e2a4a" stroke="#60a5fa" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="793" y="205" text-anchor="middle" font-size="13.5" font-weight="700" fill="#bfdbfe">👥 Analyst Team</text>
+  <text x="793" y="226" text-anchor="middle" font-size="11" fill="#94a3b8">four independent lenses</text>
+
+  <line x1="246" y1="211" x2="268" y2="211" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="460" y1="211" x2="482" y2="211" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="674" y1="211" x2="696" y2="211" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- team -> debate elbow -->
+  <path d="M793,246 L793,322 L638,322" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- debate -->
+  <rect x="330" y="290" width="300" height="64" rx="10" fill="#3b2314" stroke="#fb923c" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="480" y="317" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fed7aa">⚔️ Research Debate</text>
+  <text x="480" y="337" text-anchor="middle" font-size="11" fill="#94a3b8">Bull vs Bear → Research Manager</text>
+  <line x1="480" y1="354" x2="480" y2="380" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- risk -->
+  <rect x="330" y="384" width="300" height="64" rx="10" fill="#3b2314" stroke="#fb923c" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="480" y="411" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fed7aa">🛡️ Risk Committee</text>
+  <text x="480" y="431" text-anchor="middle" font-size="11" fill="#94a3b8">Aggressive · Neutral · Conservative → Judge</text>
+  <line x1="480" y1="448" x2="480" y2="466" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+
+  <!-- gate -->
+  <polygon points="480,470 572,506 480,542 388,506" fill="#3a3010" stroke="#facc15" stroke-width="1.6" filter="url(#sh)"/>
+  <text x="480" y="511" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fef08a">🚪 CIO Gate</text>
+
+  <!-- gate -> report -->
+  <line x1="576" y1="506" x2="644" y2="506" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="602" y="494" text-anchor="middle" font-size="10" fill="#94a3b8">high-edge ideas</text>
+  <rect x="650" y="474" width="230" height="64" rx="10" fill="#0b2e26" stroke="#34d399" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="765" y="501" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a7f3d0">📄 Report</text>
+  <text x="765" y="521" text-anchor="middle" font-size="11" fill="#94a3b8">entry · stop · target · size</text>
+
+  <!-- gate -> pass -->
+  <line x1="384" y1="506" x2="318" y2="506" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arr)"/>
+  <text x="351" y="496" text-anchor="middle" font-size="10.5" fill="#94a3b8">most days</text>
+  <rect x="80" y="474" width="234" height="64" rx="10" fill="#1f2937" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="4 4"/>
+  <text x="197" y="501" text-anchor="middle" font-size="12.5" font-weight="700" fill="#94a3b8">💤 “Nothing clears the bar”</text>
+  <text x="197" y="521" text-anchor="middle" font-size="11" fill="#94a3b8">and that’s the discipline</text>
+
+  <!-- report -> memory -->
+  <line x1="765" y1="538" x2="765" y2="562" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <rect x="650" y="566" width="230" height="58" rx="10" fill="#0b2e26" stroke="#34d399" stroke-width="1.4" filter="url(#sh)"/>
+  <text x="765" y="590" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a7f3d0">🧠 Log &amp; Reflect</text>
+  <text x="765" y="608" text-anchor="middle" font-size="11" fill="#94a3b8">score vs SPY → one lesson</text>
+
+  <!-- memory loop back to analyst team -->
+  <path d="M882,595 C 924,595 924,211 892,211" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#arr)"/>
+  <text x="944" y="403" text-anchor="middle" font-size="10.5" fill="#94a3b8" transform="rotate(-90 944 403)">recall lessons on the next run</text>
+
+  <!-- desk <-> broker -->
+  <line x1="350" y1="688" x2="350" y2="650" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="338" y="672" text-anchor="end" font-size="10.5" fill="#94a3b8">quotes · fundamentals · positions</text>
+  <line x1="610" y1="648" x2="610" y2="686" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="622" y="672" font-size="10.5" fill="#94a3b8">you approve → the order is placed</text>
+
+  <!-- broker -->
+  <rect x="250" y="690" width="460" height="70" rx="12" fill="#3f1230" stroke="#f472b6" stroke-width="1.6" filter="url(#sh)"/>
+  <text x="480" y="715" text-anchor="middle" font-size="15" font-weight="700" fill="#fbcfe8">🏦 The Broker</text>
+  <text x="480" y="735" text-anchor="middle" font-size="11.5" fill="#94a3b8">Robinhood today · IBKR / Futu next</text>
+  <text x="480" y="752" text-anchor="middle" font-size="10.5" fill="#94a3b8">market data in · confirm-before-order out</text>
+</svg>
