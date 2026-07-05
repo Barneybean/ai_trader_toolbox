@@ -8,7 +8,7 @@
 engine with support/resistance & chip-distribution · and a memory loop that learns from its own
 calls — tuned to surface only the few ideas with genuine edge.*
 
-![License](https://img.shields.io/badge/license-see%20LICENSE-blue)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
