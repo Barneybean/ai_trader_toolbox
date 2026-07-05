@@ -62,3 +62,4 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - **New wave** → extend `edge/thematic-waves.md`.
 - **New signal** → new file in the right group; wire into `decision/roles.md` + the rubric; update this map.
 - Every sub-skill: self-contained, skimmable — purpose → framework → guardrails.
+
