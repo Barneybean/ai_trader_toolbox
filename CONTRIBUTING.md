@@ -69,3 +69,4 @@ issue to coordinate so your adapter drops into the same shape.
 
 By contributing, you agree your contributions are licensed under the repo's [`LICENSE`](LICENSE).
 Not financial advice — see the README disclaimer.
+
