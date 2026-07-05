@@ -2,11 +2,13 @@
 
 # 📈 AI Trader
 
-**An open-source, multi-agent trading-research desk you run with an AI coding agent.**
+**An open-source, multi-agent trading-research desk you run with an AI coding agent —
+and an open knowledge commons where traders pool their industry playbooks.**
 
-*Independent analyst roles · structured bull-vs-bear debate · a three-lens risk committee · a quant
-engine with support/resistance & chip-distribution · and a memory loop that learns from its own
-calls — tuned to surface only the few ideas with genuine edge.*
+*It's built like a trading company and runs like a winning team: independent analyst roles ·
+structured bull-vs-bear debate · a three-lens risk committee · a quant engine with
+support/resistance & chip-distribution · and a memory loop that learns from its own calls —
+tuned to surface only the few ideas with genuine edge.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
@@ -17,6 +19,7 @@ calls — tuned to surface only the few ideas with genuine edge.*
 
 🧭 [Overview](#-overview) ·
 🏛️ [The Desk](#️-the-desk) ·
+🌍 [Knowledge Commons](#-the-knowledge-commons) ·
 📄 [Sample](#-sample-report) ·
 ⚡ [Quickstart](#-quickstart) ·
 🧩 [Make It Yours](#-make-it-yours) ·
@@ -64,6 +67,10 @@ for the default mode (you do need a broker connection for market data — see be
   no thesis wins by assertion. *(Architecture inspired by [TradingAgents](#-acknowledgements--citation).)*
 - **It learns.** Every call is journaled, scored against SPY (alpha, not just raw), and distilled to
   one reusable lesson that's recalled on the next similar setup.
+- **It compounds community knowledge.** Sector playbooks — how semis, biotech, fintech, and power
+  *actually* price — are written by people who know the industry, reviewed in the open, and read by
+  every desk that forks this repo. Each merged playbook makes everyone's desk smarter
+  ([Knowledge Commons](#-the-knowledge-commons)).
 - **Privacy by construction.** A PII gate blocks account numbers, keys, and personal data from ever
   reaching a public branch.
 
@@ -71,9 +78,11 @@ for the default mode (you do need a broker connection for market data — see be
 
 ## 🏛️ The Desk
 
-A multi-agent system that mirrors a real trading firm: specialists produce independent work, a
-research committee debates it, a risk committee sizes it, and a CIO gate lets only high-edge ideas
-through.
+AI Trader is organized like a real trading company, and it runs like a winning team: every seat
+has a written charter, nobody grades their own homework, and even the star idea has to survive the
+committee. Specialists produce independent work, a research committee debates it, a risk committee
+sizes it, and a CIO gate lets only high-edge ideas through — the same separation of duties that
+keeps a professional desk honest.
 
 ```
         your AI coding agent  (Claude Code / Codex / any AGENTS.md agent)
@@ -202,6 +211,39 @@ your fork's public history.
 
 ---
 
+## 🌍 The Knowledge Commons
+
+No single trader knows how every industry prices. A semis veteran reads node yields and design
+wins; a biotech specialist reads trial design and cash runway; a bank analyst reads credit cycles
+and book-value quality. **AI Trader exists to collect that craft in one open place** — as
+[sector playbooks](skills/analysis/sector-playbooks.md) and analysis skills that every desk built
+on this repo reads on its very next run.
+
+**The loop:**
+
+1. Someone who knows an industry writes its playbook from
+   [`skills/analysis/sectors/_TEMPLATE.md`](skills/analysis/sectors/_TEMPLATE.md) — what sets the
+   price, the dated catalysts and where they show up first, the valuation lens, the red flags, the
+   variant angle generalists miss.
+2. It's reviewed in the open against a
+   [named quality bar](CONTRIBUTING.md#the-playbook-quality-bar) — **specific, falsifiable,
+   primary-sourced, dated, illustrated, general** — the same way the desk reviews a trade.
+3. It merges, and **every fork's analyst team gains a specialist it didn't have yesterday.**
+
+The live coverage map and the most-wanted list (banks, REITs, oil & gas, industrials, healthcare
+services, mining, and more) live in
+[`skills/analysis/sectors/README.md`](skills/analysis/sectors/README.md). If you've spent years in
+a sector, an hour of writing upgrades every desk downstream — and their improvements flow back to
+yours.
+
+**Why you can trust what's in here:** nothing is a black box. Every rule the desk follows — the
+debate protocol, the risk gates, the sizing math — is plain-English markdown you can read, audit,
+and edit. Contributions carry knowledge, never positions (the PII gate enforces it). And the desk
+holds itself accountable: every call it makes is journaled and scored against SPY, so the process
+builds a track record, not just a pitch.
+
+---
+
 ## 🔌 Broker Support
 
 **A connected broker is required.** At least one **Robinhood agentic account** (or an equivalent
@@ -256,8 +298,12 @@ Add your exact private strings to `scripts/pii_denylist.local.txt` (git-ignored)
 
 ## 🤝 Contributing
 
-Issues and PRs welcome — new broker adapters, sector playbooks, engine improvements, and docs. Please
-run `python3 scripts/scan_pii.py` before pushing. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Issues and PRs welcome. **The highest-leverage contribution is an industry playbook** — see
+[The Knowledge Commons](#-the-knowledge-commons) and the wanted list in
+[`skills/analysis/sectors/README.md`](skills/analysis/sectors/README.md); broker adapters, engine
+improvements, and docs are close behind. Open a **📚 playbook proposal** issue to claim a sector,
+and run `python3 scripts/scan_pii.py` before pushing. Full guide + quality bar:
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
