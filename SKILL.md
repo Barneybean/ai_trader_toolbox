@@ -164,3 +164,4 @@ All sub-skills live in `skills/`, grouped by capability — start at **`skills/R
 ## Private deals (separate track)
 
 For a startup/venture investment (a private round, pre-IPO SPV), don't force it through the trading pipeline — use `skills/playbook/private-deals.md` for DD and stress-testing, kept separate from the tradable portfolio.
+
