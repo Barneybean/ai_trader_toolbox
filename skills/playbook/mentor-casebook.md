@@ -30,3 +30,4 @@ desk's own calls are logged separately by `scripts/track_record.py` (see
 
 > **Privacy:** never commit someone's paywalled/members-only live positions. Distill the *method*
 > (fine to share); keep the *positions* private.
+
