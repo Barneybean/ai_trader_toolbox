@@ -49,3 +49,4 @@ Backtesting exists because a rule that looks great in hindsight usually falls ap
 - **Tax/cost** — the turnover budget (fewer taxable events), the bias toward Core winners into long-term treatment, and netting costs into every RR — see `skills/decision/tax-aware.md`.
 
 Reference which lever a recommendation pulls, so the user sees the trade-off.
+
