@@ -95,7 +95,7 @@ unicode price sparkline for one-line watchlist entries.)
 
 ```bash
 # 2) render the markdown report → self-contained styled HTML (SVGs inlined)
-python3 scripts/build_report.py reports/AI-Trader-Report-<YYYY-MM-DD>.md
+python3 scripts/build_report.py reports/report_<YYYY-MM-DD>_<title>_<model>.md
 ```
 
 `build_report.py` converts the markdown to a dark, information-dense page: recommendation cards
