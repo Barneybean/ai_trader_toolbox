@@ -49,3 +49,4 @@ over a gap.
 1. Edit files in this folder (only here).
 2. Claude Code & in-repo Codex: nothing to do — they read live.
 3. Claude Desktop: `python3 scripts/package_skill.py` → re-upload `dist/ai-trader.zip`.
+
