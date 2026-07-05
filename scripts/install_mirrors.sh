@@ -41,3 +41,4 @@ echo "Claude Desktop: run 'python3 scripts/package_skill.py' then upload dist/ai
 echo "                (Settings -> Capabilities -> Skills). Re-package after edits."
 echo
 echo "Done. One folder, three runtimes."
+
