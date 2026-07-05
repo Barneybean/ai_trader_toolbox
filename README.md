@@ -104,7 +104,7 @@ through.
 ### 👥 Analyst Team
 Four independent lenses, each doing primary-source work (details in [`skills/decision/roles.md`](skills/decision/roles.md)):
 - **Fundamental** — business quality, valuation, strategy & product pipeline, management read, scenario targets.
-- **Quant** — trend/momentum/volume, the **support & resistance ("pressure") map**, ATR-scaled RR, and the **chip / cost-basis distribution (筹码)** + Wyckoff phase.
+- **Quant** — trend/momentum/volume, the **support & resistance ("pressure") map**, ATR-scaled RR, and the **chip / cost-basis distribution** + Wyckoff phase.
 - **Sentiment / News** — dated catalysts, positioning, insider flows, and *what isn't in the narrative yet*.
 - **Macro / Regime** — Fed path, yields, VIX, breadth; a crisis playbook when the tape breaks.
 
@@ -130,7 +130,7 @@ That sample (a July 2026 run over **INTC · MRVL · NKE · SOFI · KMX**) shows 
 
 - **Summary → Action → Breakdown**, written for a non-finance reader.
 - Colour-coded **callouts** — green ACTION (the trade), amber WATCH (wait-for-a-level), RISK (what kills it), NOTE (cash/sizing).
-- Per-name **charts** — price/volume with the support/resistance ladder, the **chip-distribution (筹码)** histogram (profit vs. trapped supply), and RSI/Stochastic/ADX gauges.
+- Per-name **charts** — price/volume with the support/resistance ladder, the **chip-distribution** histogram (profit vs. trapped supply), and RSI/Stochastic/ADX gauges.
 - The **quant read** (support/resistance, trend, momentum, volume), the **variant-perception** edge, **short- vs long-run** calls, a sized **trade plan** (entry / stop / target / % risk), and cash management around the CPI date.
 - The **discipline**: what to buy, what to *wait* for, and where it holds cash instead of forcing a trade.
 

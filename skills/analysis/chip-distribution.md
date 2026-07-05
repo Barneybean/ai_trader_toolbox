@@ -25,10 +25,10 @@ Wyckoff cycle: **Accumulation → Markup → Distribution → Markdown.**
 
 Call the phase FIRST. "Cheap" in markdown is a knife; a dull base in late accumulation is the setup.
 
-## Chip / cost-basis distribution (筹码分布)
+## Chip / cost-basis distribution
 
 Shares by the price holders bought at. Read:
-- **Concentration vs. dispersion.** **Single dense peak** (筹码集中) after a long base = supply
+- **Concentration vs. dispersion.** **Single dense peak** after a long base = supply
   absorbed at one cost zone = accumulation likely complete = bullish. **Multiple peaks / heavy
   overhead** = trapped holders (套牢盘) above = resistance on the way up.
 - **Chip migration.** Low-cost base chips **moving up** (via turnover/换手) into higher zones =
@@ -38,7 +38,7 @@ Shares by the price holders bought at. Read:
   until absorbed. Light overhead = clean runway.
 
 **The desk computes it — `scripts/indicators.py` → `chip_distribution`.** Builds an actual
-筹码分布 from volume-at-price: walks daily bars, distributes each day's volume across its range,
+chip distribution from volume-at-price: walks daily bars, distributes each day's volume across its range,
 and **decays older chips by turnover** (exact with `--float <shares>`; recency half-life
 otherwise) so the profile reflects who holds *now*. Fields:
 - **`main_cost_basis`** — zone with the most chips (主力成本 / big money's average). Below price

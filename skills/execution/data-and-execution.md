@@ -72,7 +72,7 @@ plain-English signal summary. Interpret it per `skills/analysis/quant-levels.md`
 high/low, the summary flags that ATR/ADX/Stoch/S-R are degraded to closes.
 
 Pass `--float <shares>` (from `get_equity_fundamentals`) to enable the exact turnover-decay
-**chip/cost-basis distribution (筹码分布)** instead of the recency-decay proxy.
+**chip/cost-basis distribution** instead of the recency-decay proxy.
 
 ### Charts & the HTML report
 
@@ -87,7 +87,7 @@ python3 scripts/charts.py <historicals.json> --symbol <T> --price <live> --float
 
 `charts.py` writes three SVGs and prints a ready-to-paste markdown embed block: **price/volume**
 (candles, SMA 20/50/200, Bollinger, the S/R ladder as zones, volume sub-panel), **chips** (the
-筹码分布 histogram — profit vs. trapped split, main cost-basis shelf, high-volume nodes), and
+chip-distribution histogram — profit vs. trapped split, main cost-basis shelf, high-volume nodes), and
 **gauges** (RSI/Stochastic/ADX/rel-volume meters + trend/MACD/OBV/scaffold badges). Paste the embed
 block into that name's block in the markdown. It shares `indicators.py`, so the charts and cited
 numbers never disagree. (`--only price,chips,gauges` to subset; `charts.sparkline()` gives an inline

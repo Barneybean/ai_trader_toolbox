@@ -14,7 +14,7 @@ It produces three views per name:
   1. price+volume  — candlesticks, SMA 20/50/200, Bollinger band, the
                      support/resistance ladder as shaded zones, and the current
                      price line (the "where does it trade against structure" view).
-  2. chips         — the chip / cost-basis distribution (筹码分布) as a horizontal
+  2. chips         — the chip / cost-basis distribution as a horizontal
                      histogram: profit vs. trapped split, main cost-basis shelf,
                      high-volume nodes (the institutional-footprint view).
   3. gauges        — a compact signal dashboard: RSI, Stochastic, ADX, relative
@@ -300,7 +300,7 @@ def render_price_volume(symbol, o, h, l, c, v, dates, indi, price, lookback=180)
 
 
 # --------------------------------------------------------------------------- #
-# 2) Chip / cost-basis distribution (筹码分布)
+# 2) Chip / cost-basis distribution
 # --------------------------------------------------------------------------- #
 
 def render_chips(symbol, centers, chips, width, price, chip_summary):
@@ -343,7 +343,7 @@ def render_chips(symbol, centers, chips, width, price, chip_summary):
     cs = chip_summary or {}
     rail = W - mr + 4
     ry = mt + 14
-    parts.append(_text(rail, ry, "筹码 / cost basis", TEXT, 10, weight="700"))
+    parts.append(_text(rail, ry, "cost basis", TEXT, 10, weight="700"))
     ry += 16
     mcb = cs.get("main_cost_basis") or {}
     if mcb:

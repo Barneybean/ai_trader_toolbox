@@ -19,7 +19,7 @@ layer. Sub-skills are grouped by capability under `skills/`.
 
 ## analysis/ — how to analyze a name
 - `analysis/quant-levels.md` — the level engine: support/resistance map, ADX, momentum, ATR stops, RR/EV (drives `../scripts/indicators.py`).
-- `analysis/chip-distribution.md` — institutional footprint: Wyckoff phase, chip/cost-basis distribution (筹码), accumulation vs. distribution, anticipating chip washes (洗盘).
+- `analysis/chip-distribution.md` — institutional footprint: Wyckoff phase, chip/cost-basis distribution, accumulation vs. distribution, anticipating chip washes (洗盘).
 - `analysis/macro-regime.md` — top-down weather: Fed path, rates, VIX, breadth; regime tilt.
 - `analysis/crisis-playbook.md` — crash/regime-shock manual: survive + hunt (phase map + case studies 2000/2008/COVID/2025/2026). Invoked by macro-regime.
 - `analysis/sector-playbooks.md` + `sectors/` — per-industry "what sets the price + where the catalyst hides." One file per sector.
