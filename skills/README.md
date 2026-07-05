@@ -20,6 +20,7 @@ layer. Sub-skills are grouped by capability under `skills/`.
 ## analysis/ — how to analyze a name
 - `analysis/quant-levels.md` — the level engine: support/resistance map, ADX, momentum, ATR stops, RR/EV (drives `../scripts/indicators.py`).
 - `analysis/chip-distribution.md` — institutional footprint: Wyckoff phase, chip/cost-basis distribution, accumulation vs. distribution, anticipating chip washes (洗盘).
+- `analysis/money-flow.md` — unusual-money-movement detector: signed flow pressure (CMF/MFI/A-D + unusual-volume sign), price-vs-flow divergence, effort-vs-result absorption, the squeeze/coil energy gauge, options overlay → a COILED_BULLISH/BEARISH/EXPANSION verdict + trigger (drives `../scripts/flow_anomaly.py`).
 - `analysis/macro-regime.md` — top-down weather: Fed path, rates, VIX, breadth; regime tilt.
 - `analysis/crisis-playbook.md` — crash/regime-shock manual: survive + hunt (phase map + case studies 2000/2008/COVID/2025/2026). Invoked by macro-regime.
 - `analysis/sector-playbooks.md` + `sectors/` — per-industry "what sets the price + where the catalyst hides." One file per sector.
@@ -47,7 +48,7 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - `execution/data-and-execution.md` — broker tool map, account/watchlist config, confirm-before-every-order guardrails.
 
 ## scripts/ (`../scripts/`)
-`indicators.py` (quant engine) · `charts.py` (SVG charts) · `build_report.py` (HTML) · `new_report.py` (scaffold) · `track_record.py` (journal + reflection) · `install_hooks.sh` / `scan_pii.py` (PII gate) · `install_mirrors.sh` / `package_skill.py` (runtime wiring).
+`indicators.py` (quant engine) · `flow_anomaly.py` (unusual money-movement: flow pressure + coil energy → large-move verdict) · `charts.py` (SVG charts) · `build_report.py` (HTML) · `new_report.py` (scaffold) · `track_record.py` (journal + reflection) · `install_hooks.sh` / `scan_pii.py` (PII gate) · `install_mirrors.sh` / `package_skill.py` (runtime wiring).
 
 ---
 
