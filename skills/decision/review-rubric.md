@@ -106,3 +106,4 @@ Early-in-the-wave category-definers (`skills/edge/thematic-waves.md`) don't fit 
 ## Track record (so the desk learns)
 
 Each run, append a one-line record of any surfaced recommendation to an internal log the user can request: date, ticker, sleeve, thesis, entry/stop/target, score. Over time this lets the desk review hit rate and calibration honestly. If the user asks "how have your calls done," reconcile past logged ideas against subsequent prices via the connector.
+
