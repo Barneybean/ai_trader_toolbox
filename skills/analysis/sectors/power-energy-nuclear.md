@@ -26,3 +26,4 @@ PPA press releases.
 
 **Variant angle:** AI-driven power demand repricing "boring" utilities; a licensing milestone or
 hyperscaler PPA the market hasn't connected to a specific name.
+
