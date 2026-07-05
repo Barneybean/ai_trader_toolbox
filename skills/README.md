@@ -23,6 +23,7 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - `analysis/macro-regime.md` — top-down weather: Fed path, rates, VIX, breadth; regime tilt.
 - `analysis/crisis-playbook.md` — crash/regime-shock manual: survive + hunt (phase map + case studies 2000/2008/COVID/2025/2026). Invoked by macro-regime.
 - `analysis/sector-playbooks.md` + `sectors/` — per-industry "what sets the price + where the catalyst hides." One file per sector.
+- `analysis/stocks/` — per-name stock playbooks: how a specific ticker trades (repeating setups, catalyst calendar, dated episodes). One file per ticker.
 
 ## decision/ — decide, size, protect
 - `decision/roles.md` — charter for each desk role (who does what, independently).
@@ -59,6 +60,7 @@ layer. Sub-skills are grouped by capability under `skills/`.
 
 ## Extending
 - **New sector** → add `analysis/sectors/<name>.md` from `_TEMPLATE.md`, register in `analysis/sector-playbooks.md`.
+- **New stock playbook** → add `analysis/stocks/<TICKER>.md` from `stocks/_TEMPLATE.md`, register in `stocks/README.md`.
 - **New wave** → extend `edge/thematic-waves.md`.
 - **New signal** → new file in the right group; wire into `decision/roles.md` + the rubric; update this map.
 - Every sub-skill: self-contained, skimmable — purpose → framework → guardrails.
