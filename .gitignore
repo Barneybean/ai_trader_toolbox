@@ -236,6 +236,7 @@ skills/private/
 journal/decisions.jsonl
 journal/reflections.md
 reports/*.html
+!reports/sample-report.html
 reports/*.md
 reports/charts/*.svg
 
