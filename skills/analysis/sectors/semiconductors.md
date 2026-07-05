@@ -35,3 +35,4 @@ $23M open-market buy at ~$23 — `skills/edge/smart-money.md`.)
 
 **Variant angle:** node-yield reality vs. management's public claims; contract/backlog visibility
 vs. what estimates embed; who the *next* bottleneck supplier is (`skills/edge/thematic-waves.md`).
+
