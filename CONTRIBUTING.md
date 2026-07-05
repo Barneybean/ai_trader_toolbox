@@ -6,11 +6,44 @@ better for everyone are very welcome.
 
 ## Ways to contribute
 
+- ⭐ **Sector playbooks** — the flagship (see below): encode how your industry actually prices.
+- **Strategy & edge skills** — patterns for `skills/decision/strategies.md`, signals for `skills/edge/`.
 - **Broker adapters** — implement the adapter interface for a new broker (IBKR, Futu, Alpaca, …).
-- **Sector playbooks** — add `skills/analysis/sectors/<name>.md` from `skills/analysis/sectors/_TEMPLATE.md`.
 - **Engine improvements** — new indicators, better chip-distribution/S-R logic, tests.
 - **Skill / reference quality** — clearer methodology, better prompts, fixes.
 - **Docs & examples** — quickstarts, example (synthetic) reports, tutorials.
+
+## ⭐ The flagship contribution: industry playbooks
+
+The long-term bet of this project is a **knowledge commons**. A desk is only as good as its
+specialists, and no single person knows how every industry prices — a semis veteran reads node
+yields and design wins, a biotech hand reads trial design and cash runway, a bank analyst reads
+credit cycles and book-value quality. If you've worked in or seriously traded a sector, that
+knowledge is the contribution **only you** can make — and every desk built on this repo gains an
+analyst it didn't have yesterday.
+
+**How:**
+
+1. Check the coverage map + wanted list: [`skills/analysis/sectors/README.md`](skills/analysis/sectors/README.md).
+2. Open a **📚 playbook proposal** issue to claim the sector (so nobody duplicates work).
+3. Copy `skills/analysis/sectors/_TEMPLATE.md` → `sectors/<your-sector>.md` and answer all seven fields.
+4. Register it: add a row in `skills/analysis/sector-playbooks.md` and flip the row in `sectors/README.md`.
+5. Open a PR — the template's checklist walks the quality bar below.
+
+### The playbook quality bar
+
+A playbook merges when it is:
+
+- **Specific** — names the 1–2 variables the sector re-rates on. "P/E and growth" is an automatic revision request.
+- **Falsifiable** — a reader can check the drivers against real filings/trackers and watch them work.
+- **Primary-sourced** — points at the filings, databases, and standards bodies where the data appears *first*.
+- **Dated** — catalysts are tied to real, recurring events (PDUFA dates, capacity announcements, rate decisions…).
+- **Illustrated** — at least one named, worked archetype showing the pattern paying off (or blowing up).
+- **General** — trading craft, not your positions. No PII, no paid content, nothing you lack the right to share.
+
+The same bar applies to strategy patterns and edge skills: specific, sourced, general. Reviews are
+done in the open, the way the desk reviews a trade — expect a bull/bear pass on your playbook, and
+know that revision requests mean the bar is real, not that you're unwelcome.
 
 ## 🔒 The one hard rule: no PII
 
