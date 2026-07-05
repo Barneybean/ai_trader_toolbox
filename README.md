@@ -31,6 +31,13 @@ calls — tuned to surface only the few ideas with genuine edge.*
 > ⚠️ **Not financial advice.** This is research tooling. It **never auto-executes** — you confirm and
 > place every order yourself. Markets carry risk; you alone are responsible for your trades.
 
+> 🔗 **A broker connection is required.** You must connect **at least one Robinhood agentic-trading
+> account** — most of the desk's research runs through it (live quotes, ~1yr historicals,
+> fundamentals, earnings, positions, buying power). **Another brokerage connector with equivalent
+> data + agentic functions works too** (IBKR/Futu adapters are on the roadmap). Without a connector,
+> the desk falls back to web + manually-supplied data, which is materially more limited. Set it up
+> from a **CLI agent, not a desktop app** (see [Brokers](#-broker-support)).
+
 ---
 
 ## 🧭 Overview
@@ -42,8 +49,8 @@ bar today."*
 
 It is **agent-driven**: the intelligence lives in prompt/skill files an AI coding agent reads
 ([`SKILL.md`](SKILL.md) + [`skills/`](skills/)), backed by pure-Python engines for the
-deterministic math. Run it under whatever model and coding agent you like — **no API key required**
-for the default mode.
+deterministic math. Run it under whatever model and coding agent you like — **no LLM API key required**
+for the default mode (you do need a broker connection for market data — see below).
 
 > 🌱 **This is the open-source starter.** It ships **general trading knowledge and one example
 > skill** — no personal positions, no proprietary edge. **Fork it and make it yours:** plug in your
@@ -197,6 +204,11 @@ your fork's public history.
 ---
 
 ## 🔌 Broker Support
+
+**A connected broker is required.** At least one **Robinhood agentic account** (or an equivalent
+connector with the same data + agentic functions) must be linked — the desk pulls quotes,
+historicals, fundamentals, positions, and buying power through it, and that data drives most of the
+research. The web + manual-data fallback works without one but is materially more limited.
 
 | Broker | Status | Notes |
 |---|---|---|
