@@ -108,30 +108,53 @@ AI Trader is organized like a real trading company, and it runs like a winning t
 Specialists produce independent work, a research committee debates it, a risk committee sizes it,
 and a CIO gate lets only high-edge ideas through.
 
-```
-        your AI coding agent  (Claude Code / Codex / any AGENTS.md agent)
-                          │  reads
-                          ▼
-   ┌───────────────────────────────────────────────────────────────┐
-   │  THE BRAIN  —  SKILL.md + skills/                          │
-   │  edge doctrine → analysis engines → discipline → execution    │
-   └───────────────┬───────────────────────────────────────────────┘
-                   │  orchestrates the pipeline
-                   ▼
-   Macro/Regime ─► Thematic Wave ─► Data + Quant/Chip Engine ─► Analyst Team
-        │                                                            │
-        ▼                                                            ▼
-   Recall past lessons                                  ┌── Research Debate (Bull ⚔ Bear → Manager)
-        (memory loop)                                   └── Risk Committee (Aggressive·Neutral·Conservative → Judge)
-                                                                     │
-                                                                     ▼
-                                                     CIO Gate ─► Report ─► Log & Reflect
-                   │  data / orders via
-                   ▼
-   ┌───────────────────────────────────────────────────────────────┐
-   │  THE BROKER  —  Robinhood today · IBKR / Futu next             │
-   │  read-only data  +  confirm-before-order execution            │
-   └───────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    AGENT["🤖 Your AI coding agent<br/><i>Claude Code · Codex · any AGENTS.md agent</i>"]
+
+    subgraph DESK["&nbsp;🏛️ THE DESK — SKILL.md + skills/&nbsp;"]
+        direction TB
+        MACRO["🌍 Macro / Regime<br/><i>sets the weather</i>"]
+        WAVE["🌊 Thematic Wave<br/><i>where capital rotates</i>"]
+        ENGINE["📊 Quant / Chip Engine<br/><i>levels · risk:reward · chip distribution</i>"]
+        TEAM["👥 Analyst Team<br/><i>Fundamental · Quant · Sentiment · Macro</i>"]
+        DEBATE["⚔️ Research Debate<br/><i>Bull vs Bear → Research Manager</i>"]
+        RISK["🛡️ Risk Committee<br/><i>Aggressive · Neutral · Conservative → Judge</i>"]
+        GATE{"🚪 CIO Gate"}
+        REPORT["📄 Report<br/><i>entry · stop · target · size</i>"]
+        PASS["💤 “Nothing clears the bar today”"]
+        MEMORY["🧠 Log & Reflect<br/><i>score vs SPY → one lesson</i>"]
+
+        MACRO --> WAVE --> ENGINE --> TEAM --> DEBATE --> RISK --> GATE
+        GATE -- "high-edge ideas" --> REPORT
+        GATE -. "most days" .-> PASS
+        REPORT --> MEMORY
+        MEMORY -. "recall lessons next run" .-> TEAM
+    end
+
+    BROKER["🏦 The Broker — Robinhood today · IBKR / Futu next<br/><i>market data in · confirmed orders out</i>"]
+
+    AGENT == "reads & orchestrates" ==> DESK
+    BROKER -- "quotes · fundamentals · positions" --> ENGINE
+    REPORT -- "you approve → place order" --> BROKER
+
+    style DESK fill:none,stroke:#64748b,stroke-dasharray:4 4
+
+    classDef agent fill:#f5f0ff,stroke:#8b5cf6,stroke-width:2px,color:#3b0764
+    classDef stage fill:#eff6ff,stroke:#3b82f6,color:#1e3a5f
+    classDef judge fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    classDef gate fill:#fef9c3,stroke:#eab308,stroke-width:2px,color:#713f12
+    classDef good fill:#ecfdf5,stroke:#10b981,color:#064e3b
+    classDef quiet fill:#f8fafc,stroke:#94a3b8,color:#334155
+    classDef broker fill:#fdf2f8,stroke:#ec4899,color:#831843
+
+    class AGENT agent
+    class MACRO,WAVE,ENGINE,TEAM stage
+    class DEBATE,RISK judge
+    class GATE gate
+    class REPORT,MEMORY good
+    class PASS quiet
+    class BROKER broker
 ```
 
 ### 👥 Analyst Team
