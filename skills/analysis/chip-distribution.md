@@ -119,3 +119,4 @@ weekly close well below $40 on *heavy* volume with OBV breaking down.
 
 **Guardrails:** probabilistic — always confirm with volume + OBV, distinguish wash from
 markdown, and only apply where the fundamental thesis supports accumulation.
+
