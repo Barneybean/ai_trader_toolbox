@@ -14,3 +14,4 @@ case "$branch" in
     ;;
   *) echo "scan_pii: '$branch' is a private branch — PII gate not enforced." ;;
 esac
+
