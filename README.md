@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📈 Trading Desk
+# 📈 AI Trader
 
 **An open-source, multi-agent trading-research desk you run with an AI coding agent.**
 
@@ -42,7 +42,7 @@ calls — tuned to surface only the few ideas with genuine edge.*
 ## 🧭 Overview
 
 Most "AI stock picker" projects optimize for *more* signals. A real trading desk makes money by
-being **selective** and **managing risk**. Trading Desk encodes that discipline as a pipeline of
+being **selective** and **managing risk**. AI Trader encodes that discipline as a pipeline of
 independent roles that argue, stress-test, and vote — and that mostly answers *"nothing clears the
 bar today."*
 
@@ -147,7 +147,7 @@ That sample (a July 2026 run over **INTC · MRVL · NKE · SOFI · KMX**) shows 
 ### Agent-driven (the default — no API key)
 
 ```bash
-git clone <your-fork-url> trading-desk && cd trading-desk
+git clone <your-fork-url> ai-trader && cd ai-trader
 cp config.example.toml config.local.toml   # add your broker/account (git-ignored)
 cp .env.example .env                        # only if you use an API-key feature
 bash scripts/install_hooks.sh                 # install the PII gate (recommended)
@@ -282,7 +282,7 @@ work, please also credit theirs:
 
 ## ⚖️ Disclaimer & License
 
-Trading Desk is for **research and education only** and is **not financial or tax advice**. It does
+AI Trader is for **research and education only** and is **not financial or tax advice**. It does
 not auto-trade; you approve and place every order and own every outcome. Past performance and
 backtests do not guarantee future results.
 

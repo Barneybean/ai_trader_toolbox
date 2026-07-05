@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Chart renderer for the trading-desk skill — turns the numbers from
+Chart renderer for AI Trader — turns the numbers from
 ``indicators.py`` into self-contained **SVG** the daily report can embed.
 
 Why SVG (and why pure stdlib): the reports are markdown committed to GitHub and

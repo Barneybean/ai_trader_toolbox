@@ -1,6 +1,6 @@
 # Reports
 
-Dated archive of Trading Desk runs. Each run is delivered — and **committed** — as
+Dated archive of AI Trader runs. Each run is delivered — and **committed** — as
 **styled, self-contained HTML** (`.html`), with per-name charts under `charts/`.
 
 The markdown (`.md`) is only a **local build intermediate**: `new_report.py` scaffolds it,
@@ -9,14 +9,14 @@ the run fills it, `build_report.py` renders it to HTML — then it is **not kept
 
 ## Naming
 
-`Trading-Desk-Report-YYYY-MM-DD.html` — the committed deliverable (SVG charts inlined, so
+`AI-Trader-Report-YYYY-MM-DD.html` — the committed deliverable (SVG charts inlined, so
 it's one portable file). **This is what you open/share.** One file per run, ISO date so files
 sort chronologically (date = run date, Pacific).
 `charts/<TICKER>-YYYY-MM-DD-{price,chips,gauges}.svg` — the per-name chart sources.
 
 ## How they're produced
 
-The daily report is a **full desk run** of the `trading-desk` skill, executed
+The daily report is a **full desk run** of AI Trader, executed
 in an interactive session so the Robinhood connector (live positions, quotes,
 watchlists) is available. It is **not** an unattended cloud job — a cloud agent
 can't write to this local folder, and a headless local run loses the Robinhood
@@ -40,7 +40,7 @@ python3 scripts/charts.py <historicals.json> --symbol SOFI --price <live> --floa
 #    → paste the printed image-embed block into that name's block in the .md
 
 # 3) render the styled, self-contained HTML deliverable (charts inlined)
-python3 scripts/build_report.py reports/Trading-Desk-Report-2026-07-03.md
+python3 scripts/build_report.py reports/AI-Trader-Report-2026-07-03.md
 ```
 
 `new_report.py` builds only the scaffold; the analysis is filled by the desk run.

@@ -1,4 +1,4 @@
-# Contributing to Trading Desk
+# Contributing to AI Trader
 
 Thanks for your interest! This project is an open-source **starter** desk — general trading
 knowledge and one example skill that people fork and customize. Contributions that make the *base*
@@ -42,7 +42,7 @@ run anywhere `python3` does. If a feature genuinely needs a dependency, discuss 
 and make it optional.
 
 ```bash
-git clone <your-fork> && cd trading-desk
+git clone <your-fork> && cd ai-trader
 bash scripts/install_hooks.sh
 python3 scripts/indicators.py <historicals.json> --price <px>   # sanity-check the engine
 ```

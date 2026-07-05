@@ -11,7 +11,7 @@ echo
 # 1) Claude Code — personal skill via symlink (auto-discovered, always current).
 CC_SKILLS="$HOME/.claude/skills"
 mkdir -p "$CC_SKILLS"
-LINK="$CC_SKILLS/trading-desk"
+LINK="$CC_SKILLS/ai-trader"
 if [ -L "$LINK" ]; then
   ln -sfn "$SRC" "$LINK"; echo "Claude Code: refreshed symlink $LINK -> $SRC"
 elif [ -e "$LINK" ]; then
@@ -37,7 +37,7 @@ fi
 
 # 3) Claude Desktop — needs an uploaded bundle; regenerate it from source.
 echo
-echo "Claude Desktop: run 'python3 scripts/package_skill.py' then upload dist/trading-desk.zip"
+echo "Claude Desktop: run 'python3 scripts/package_skill.py' then upload dist/ai-trader.zip"
 echo "                (Settings -> Capabilities -> Skills). Re-package after edits."
 echo
 echo "Done. One folder, three runtimes."

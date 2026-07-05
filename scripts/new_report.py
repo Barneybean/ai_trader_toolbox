@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Create the dated report file for a Trading Desk run.
+Create the dated report file for a AI Trader run.
 
 This is the *reusable* part of producing the daily report: the filename/title
 convention and the fixed section scaffold (which matches the "Output format"
@@ -30,7 +30,7 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORTS_DIR = os.path.join(PROJECT_ROOT, "reports")
 
-FILENAME_FMT = "Trading-Desk-Report-{date}.md"
+FILENAME_FMT = "AI-Trader-Report-{date}.md"
 
 SCAFFOLD = """\
 # Desk Run — {date_human}{market}
@@ -99,7 +99,7 @@ def render_scaffold(date_iso, market):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(description="Create the dated Trading Desk report file.")
+    p = argparse.ArgumentParser(description="Create the dated AI Trader report file.")
     p.add_argument("--date", default=_today(), help="Report date YYYY-MM-DD (default: today).")
     p.add_argument("--market", choices=["open", "closed"], default=None,
                    help="Optional market state to stamp in the header.")

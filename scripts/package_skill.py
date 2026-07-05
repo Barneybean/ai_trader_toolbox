@@ -5,12 +5,12 @@ Claude Desktop is the one runtime that can't read a local folder live — it wan
 uploaded .zip. Rather than maintain a second copy, we *regenerate* the bundle from the
 single source of truth on demand. Never hand-edit the zip; re-run this after any change.
 
-    python3 scripts/package_skill.py            # -> dist/trading-desk.zip
+    python3 scripts/package_skill.py            # -> dist/ai-trader.zip
     python3 scripts/package_skill.py --out /tmp # custom output dir
 
 The zip contains SKILL.md, skills/, scripts/, AGENTS.md, PORTABILITY.md — everything the
 skill needs — and excludes .git, __pycache__, dist/, reports/ (run artifacts), and dotfiles.
-Upload dist/trading-desk.zip in Claude Desktop → Settings → Capabilities → Skills.
+Upload dist/ai-trader.zip in Claude Desktop → Settings → Capabilities → Skills.
 """
 import argparse
 import fnmatch
@@ -53,7 +53,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=os.path.join(ROOT, "dist"),
                     help="output directory (default: dist/)")
-    ap.add_argument("--name", default="trading-desk", help="bundle basename")
+    ap.add_argument("--name", default="ai-trader", help="bundle basename")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)

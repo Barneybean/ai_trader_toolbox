@@ -1,9 +1,9 @@
 ---
-name: trading-desk
+name: ai-trader
 description: Run a simulated multi-role trading desk (research analysts, quant, sentiment, portfolio manager/trader, risk manager, and a CIO review committee) to find and pressure-test stock trade ideas, then surface ONLY the ones with genuine edge. Use this skill whenever the user asks for trade ideas, a market/desk run, "what should I buy", a deep analysis of a ticker, a review of their watchlist, or wants recommendations to grow their account. It prioritizes the user's Robinhood watchlist, also scans for better ideas, partitions capital into a short-term (tactical) and long-term (core) sleeve, and enforces a high review bar so only needle-moving ideas reach the user. Recommendations NEVER auto-execute — the user confirms every order.
 ---
 
-# Trading Desk
+# AI Trader
 
 A small, disciplined proprietary desk. The job is not many ideas — it's a *few good ones*, loudly killing the rest. The edge is in the filtering.
 
@@ -92,9 +92,9 @@ Use subagents for the analyst roles where available (keeps perspectives independ
 **Step 8 — Review committee (CIO gate).** Score every survivor with the rubric, apply the hard gates, rank. Require a real variant-perception statement on each surfaced idea; no differentiated edge → beta, held to a higher bar or labeled. If nothing passes, say so.
 
 **Step 9 — Report + LOG.** Deliver in the format below — depth in reasoning, brevity in delivery. Persist as markdown source + styled HTML:
-1. `python3 scripts/new_report.py --market <open|closed>` → `reports/Trading-Desk-Report-<YYYY-MM-DD>.md` (write the final content in).
+1. `python3 scripts/new_report.py --market <open|closed>` → `reports/AI-Trader-Report-<YYYY-MM-DD>.md` (write the final content in).
 2. Charts per fully-covered name: `python3 scripts/charts.py <historicals.json> --symbol <T> --price <live> --float <float> --out reports/charts --date <YYYY-MM-DD>` — embed the three images it prints in that name's block.
-3. `python3 scripts/build_report.py reports/Trading-Desk-Report-<YYYY-MM-DD>.md` → the self-contained styled `.html` (the committed deliverable; the `.md` is a build intermediate, not committed).
+3. `python3 scripts/build_report.py reports/AI-Trader-Report-<YYYY-MM-DD>.md` → the self-contained styled `.html` (the committed deliverable; the `.md` is a build intermediate, not committed).
 
 Then publish: `git add reports/*.html reports/charts && git commit -m "Daily desk report <YYYY-MM-DD>" && git push` (HTML + charts only; report lives in your repo).
 

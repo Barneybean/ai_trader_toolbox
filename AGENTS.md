@@ -1,6 +1,6 @@
-# AGENTS.md — Trading Desk
+# AGENTS.md — AI Trader
 
-**This repository *is* the Trading Desk skill.** It is one source of truth, read by several
+**This repository *is* the AI Trader skill.** It is one source of truth, read by several
 agent runtimes (Claude Code, Claude Desktop, Codex, and any other AGENTS.md-aware agent). Do
 not fork or copy the instructions — read them in place.
 

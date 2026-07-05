@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Technical + quant indicators for the trading-desk skill.
+Technical + quant indicators for AI Trader.
 
 Pure Python + standard library only (no pandas/numpy/TA-Lib required) so it runs
 anywhere without an install step. Computes what a quant analyst needs to read
