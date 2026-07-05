@@ -21,8 +21,8 @@ connector/watchlist UUIDs, real positions, or a specific person's private book.
 - Put anything personal in `references/private/` (git-ignored).
 - **Run the gate before every push:**
   ```bash
-  bash tools/install_hooks.sh     # once: installs pre-commit + pre-push PII hooks
-  python3 tools/scan_pii.py       # on demand
+  bash scripts/install_hooks.sh     # once: installs pre-commit + pre-push PII hooks
+  python3 scripts/scan_pii.py       # on demand
   ```
   CI (`.github/workflows/pii-scan.yml`) will fail a PR that trips the scanner.
 
@@ -43,7 +43,7 @@ and make it optional.
 
 ```bash
 git clone <your-fork> && cd trading-desk
-bash tools/install_hooks.sh
+bash scripts/install_hooks.sh
 python3 scripts/indicators.py <historicals.json> --price <px>   # sanity-check the engine
 ```
 
@@ -57,7 +57,7 @@ python3 scripts/indicators.py <historicals.json> --price <px>   # sanity-check t
 
 1. Branch off `opensource`.
 2. Keep PRs focused; describe the *why*.
-3. Ensure `python3 tools/scan_pii.py` passes and no personal data is included.
+3. Ensure `python3 scripts/scan_pii.py` passes and no personal data is included.
 4. For a new broker/sector, follow the existing interface/template so it composes.
 
 ## Adding a broker (interface sketch)

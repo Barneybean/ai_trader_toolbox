@@ -1,4 +1,4 @@
-# PII denylist — EXAMPLE. Copy to `tools/pii_denylist.local.txt` (git-ignored) and add YOUR
+# PII denylist — EXAMPLE. Copy to `scripts/pii_denylist.local.txt` (git-ignored) and add YOUR
 # exact private strings. The gate hard-blocks any tracked file containing one of these.
 #
 # Put here the low-entropy specifics the regexes only *warn* on (e.g. a bare account number),

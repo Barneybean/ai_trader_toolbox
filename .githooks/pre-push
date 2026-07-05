@@ -6,7 +6,7 @@ branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 case "$branch" in
   opensource|public|oss|release)
     echo "🔒 scan_pii: scanning tracked files before pushing public branch '$branch'…"
-    if ! python3 tools/scan_pii.py; then
+    if ! python3 scripts/scan_pii.py; then
       echo "✋ push blocked — do NOT publish until the findings above are resolved."
       echo "   (Bypass is intentionally awkward: git push --no-verify — only if you are certain.)"
       exit 1

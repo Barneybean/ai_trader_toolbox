@@ -240,4 +240,4 @@ reports/*.md
 reports/charts/*.svg
 
 # Local PII denylist (your exact private strings) — never commit
-tools/pii_denylist.local.txt
+scripts/pii_denylist.local.txt

@@ -6,11 +6,11 @@ numbers, connector/watchlist UUIDs, API keys and other secrets, private-key bloc
 emails. Exits non-zero if any HARD match is found, so it can gate a commit/publish (CI or a
 pre-commit hook).
 
-    python3 tools/scan_pii.py            # scan tracked files (default)
-    python3 tools/scan_pii.py --all      # scan the whole working tree (respecting .gitignore)
-    python3 tools/scan_pii.py --staged    # scan only staged files (for a pre-commit hook)
+    python3 scripts/scan_pii.py            # scan tracked files (default)
+    python3 scripts/scan_pii.py --all      # scan the whole working tree (respecting .gitignore)
+    python3 scripts/scan_pii.py --staged    # scan only staged files (for a pre-commit hook)
 
-Add project-specific strings to block in `tools/pii_denylist.txt` (one per line, '#' comments).
+Add project-specific strings to block in `scripts/pii_denylist.txt` (one per line, '#' comments).
 Tune ALLOW if a pattern is a legitimate false positive.
 """
 import argparse
@@ -65,7 +65,7 @@ def load_denylist():
     # Committed generic terms + a git-ignored local file for exact private strings (secrets/names).
     terms = []
     for name in ("pii_denylist.txt", "pii_denylist.local.txt"):
-        path = os.path.join(ROOT, "tools", name)
+        path = os.path.join(ROOT, "scripts", name)
         if os.path.exists(path):
             for line in open(path):
                 line = line.split("#", 1)[0].strip()
@@ -112,7 +112,7 @@ def main():
         print(f"\n❌ {len(hard)} BLOCKING match(es) — do NOT publish until resolved:")
         show(hard, "FAIL")
         print("\nMove the value into config.local.toml / .env (git-ignored), or add a false "
-              "positive to ALLOW in tools/scan_pii.py.")
+              "positive to ALLOW in scripts/scan_pii.py.")
         sys.exit(1)
     print(f"\n✅ scan_pii: no blocking PII/credentials in {args.mode} files."
           + (f" ({len(warn)} warning(s) to eyeball.)" if warn else ""))

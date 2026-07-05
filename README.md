@@ -114,13 +114,19 @@ Every call is logged; when it matures it's scored **raw + alpha vs SPY** and dis
 
 ## ⚡ Quickstart
 
+> 🤖 **Easiest path: hand this README to your AI agent.** Share this file (and [`SKILL.md`](SKILL.md))
+> with your CLI agent — Claude Code or Codex — and say *"read this and set it up, then run a desk
+> run for me."* The whole toolkit is designed to be **operated by an agent reading these docs**: it
+> can install the PII gate, wire your config, connect the broker, and drive the desk end-to-end.
+> The steps below are the same thing done by hand.
+
 ### Agent-driven (the default — no API key)
 
 ```bash
 git clone <your-fork-url> trading-desk && cd trading-desk
 cp config.example.toml config.local.toml   # add your broker/account (git-ignored)
 cp .env.example .env                        # only if you use an API-key feature
-bash tools/install_hooks.sh                 # install the PII gate (recommended)
+bash scripts/install_hooks.sh                 # install the PII gate (recommended)
 ```
 
 Then point your agent at the skill and ask for a run:
@@ -202,7 +208,7 @@ See the [roadmap](#️-roadmap) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Publishing trading tooling means **never leaking your account or positions.** This repo enforces it:
 
 - **Secrets live only in git-ignored files** — `config.local.toml`, `.env`, `references/private/`.
-- **A scanner** — [`tools/scan_pii.py`](tools/scan_pii.py) — flags account numbers, keys, connector
+- **A scanner** — [`scripts/scan_pii.py`](scripts/scan_pii.py) — flags account numbers, keys, connector
   UUIDs, and personal identifiers in tracked files.
 - **A three-layer gate** blocks PII from reaching the public branch:
   1. **pre-commit** hook — refuses to stage PII on a public branch,
@@ -211,11 +217,11 @@ Publishing trading tooling means **never leaking your account or positions.** Th
      backstop that can't be skipped.
 
 ```bash
-bash tools/install_hooks.sh          # turn on the local gate
-python3 tools/scan_pii.py            # scan on demand before publishing
+bash scripts/install_hooks.sh          # turn on the local gate
+python3 scripts/scan_pii.py            # scan on demand before publishing
 ```
 
-Add your exact private strings to `tools/pii_denylist.local.txt` (git-ignored) for hard blocking.
+Add your exact private strings to `scripts/pii_denylist.local.txt` (git-ignored) for hard blocking.
 
 ---
 
@@ -231,7 +237,7 @@ Add your exact private strings to `tools/pii_denylist.local.txt` (git-ignored) f
 ## 🤝 Contributing
 
 Issues and PRs welcome — new broker adapters, sector playbooks, engine improvements, and docs. Please
-run `python3 tools/scan_pii.py` before pushing. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+run `python3 scripts/scan_pii.py` before pushing. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
