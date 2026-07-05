@@ -16,7 +16,7 @@ pipe tables, blockquotes, rules, bold/italic/code, links, images). It is tuned
 for the desk report scaffold in SKILL.md, not arbitrary markdown.
 
 Usage:
-    python3 scripts/build_report.py reports/AI-Trader-Report-2026-07-03.md
+    python3 scripts/build_report.py reports/report_2026-07-03_daily-desk-run_claude-fable-5.md
     python3 scripts/build_report.py <in.md> --out <out.html>
     python3 scripts/build_report.py <in.md> --charts-dir reports/charts
 """
