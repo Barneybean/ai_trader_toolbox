@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# PII gate (local) — blocks a PUSH of a public branch if PII/credentials are in tracked files.
+# The definitive gate is CI (.github/workflows/pii-scan.yml); this catches it before it leaves.
+set -e
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+case "$branch" in
+  opensource|public|oss|release)
+    echo "🔒 scan_pii: scanning tracked files before pushing public branch '$branch'…"
+    if ! python3 tools/scan_pii.py; then
+      echo "✋ push blocked — do NOT publish until the findings above are resolved."
+      echo "   (Bypass is intentionally awkward: git push --no-verify — only if you are certain.)"
+      exit 1
+    fi
+    ;;
+  *) echo "scan_pii: '$branch' is a private branch — PII gate not enforced." ;;
+esac

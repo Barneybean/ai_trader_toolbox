@@ -1,0 +1,15 @@
+# PII denylist — EXAMPLE. Copy to `tools/pii_denylist.local.txt` (git-ignored) and add YOUR
+# exact private strings. The gate hard-blocks any tracked file containing one of these.
+#
+# Put here the low-entropy specifics the regexes only *warn* on (e.g. a bare account number),
+# plus any personal identifiers you never want published. One string per line; '#' starts a comment.
+#
+# NOTE: the .local.txt file is git-ignored precisely so these secret values are not themselves
+# committed. Do NOT put real secrets in this .example file.
+#
+# --- examples (all fake — replace with your own in the .local copy) ---
+# 000000000            # your brokerage account number(s)
+# 111111111
+# your.email@example.com
+# Your Full Name
+# YourMentorHandle

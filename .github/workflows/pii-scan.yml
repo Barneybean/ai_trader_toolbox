@@ -1,0 +1,20 @@
+name: PII / credential gate
+
+# Server-side gate: the definitive one. Runs on every push to / PR against the public branch,
+# so PII can't reach the open-source branch even if a local hook is skipped or not installed.
+on:
+  push:
+    branches: [opensource, public, release]
+  pull_request:
+    branches: [opensource, public, release]
+
+jobs:
+  scan-pii:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Scan tracked files for PII / credentials
+        run: python3 tools/scan_pii.py
