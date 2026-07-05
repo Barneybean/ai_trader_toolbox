@@ -63,3 +63,4 @@ Study prior revolutions for *who rose, who fell, and why* — the structure repe
 5. **Define invalidation and expect drawdowns.** Category-definers draw down 40–60% on the way up; pre-commit to thesis-break conditions (not just price) so a drawdown doesn't shake you out of a winner or trap you in a loser.
 
 **Guardrails.** Don't chase a wave that's already consensus and late — exactly where the Cisco-2000 round-trip happens. Pair every theme with entry/valuation discipline. Separate a **category-definer** (own through drawdowns) from a **bottleneck-spiker** (ride and exit) — they demand opposite holding behavior.
+
