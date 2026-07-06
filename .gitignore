@@ -237,6 +237,7 @@ journal/decisions.jsonl
 journal/reflections.md
 reports/*.html
 !reports/report_2026-07-03_sample-desk-run_claude-opus-4-8.html
+!reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html
 reports/*.md
 reports/charts/*.svg
 
