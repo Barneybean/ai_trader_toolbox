@@ -192,19 +192,61 @@ forecast fans, ETF alternatives, and a bilingual (EN / 中文) deck with a langu
 Open it in a browser, or view without cloning via a raw-HTML previewer (prepend
 `https://htmlpreview.github.io/?` to the file's GitHub URL).
 
-The sample (a July 2026 run over **INTC · MRVL · NKE · SOFI · KMX**) shows the format:
+It opens with the call — what to do, in one screen:
 
-- **Summary → Action → Breakdown**, written for a non-finance reader.
-- Colour-coded **callouts** — green ACTION (the trade), amber WATCH (wait for a level), RISK (what
-  kills it), NOTE (cash/sizing).
-- Per-name **charts** — price/volume with the support/resistance ladder, the chip-distribution
-  histogram, and RSI/Stochastic/ADX gauges.
-- A sized **trade plan** per idea (entry / stop / target / % risk), short- vs long-run calls, and
-  cash management around event dates.
-- The **discipline**: what to buy, what to *wait* for, and where it holds cash instead of forcing
-  a trade.
+<p align="center">
+  <img src="docs/sample-report/01-the-call.png" width="760" alt="Sample report — the call: verdict cards and the sized orders table">
+</p>
 
-> Illustrative only — a demo of the output format, not investment advice.
+<details>
+<summary><b>📸 More pages from the sample report</b> (scorecards, layer map, chip footprint, signals, forecast fan …)</summary>
+<br>
+
+**Decision scorecards** — per name: the call, the trade plan, and the money-flow read in one visual.
+
+<p align="center">
+  <img src="docs/sample-report/02-scorecards.png" width="760" alt="Decision scorecards — ACCUMULATE / HOLD with trade plan and money-flow gauges">
+</p>
+
+**The layer map** — the theme cut into supply-chain layers, each priced on certainty × purity × elasticity.
+
+<p align="center">
+  <img src="docs/sample-report/03-layer-map.png" width="760" alt="Layer map — brain / body / components cards and the layer-ranked call">
+</p>
+
+**Institutional footprint** — the chip / cost-basis distribution: where supply is trapped, and whether the wash is buyable.
+
+<p align="center">
+  <img src="docs/sample-report/04-chip-footprint.png" width="760" alt="Chip-distribution histogram with the Wyckoff phase read">
+</p>
+
+**Levels & signals** — price chart with the support/resistance ladder, the full indicator dashboard, and a plain-English line telling you how to read it.
+
+<p align="center">
+  <img src="docs/sample-report/05-levels-signals.png" width="760" alt="Price chart with S/R ladder and signal dashboard">
+</p>
+
+**Fundamentals & catalyst** — the variant perception: what consensus sees, what the desk sees, and the trade plan that follows.
+
+<p align="center">
+  <img src="docs/sample-report/06-fundamentals.png" width="760" alt="Fundamentals, catalyst, and the ACTION trade plan">
+</p>
+
+**Forecast — the odds** — Monte-Carlo fan + historical-analog base rate, and the honesty to show when the odds *disagree* with the call.
+
+<p align="center">
+  <img src="docs/sample-report/07-forecast.png" width="760" alt="Monte-Carlo price forecast cone with the verdict">
+</p>
+
+</details>
+
+The format in words: **Summary → Action → Breakdown** for a non-finance reader; colour-coded
+callouts (ACTION / WATCH / RISK / NOTE); per-name charts (price + S/R ladder, chip histogram,
+indicator gauges); a sized trade plan per idea (entry / stop / target / % risk) with short- vs
+long-run calls; and the discipline — what to buy, what to *wait* for, and where it holds cash.
+
+> Illustrative only — a demo of the output format on a fictional $2,000 account, not investment
+> advice.
 
 ---
 
