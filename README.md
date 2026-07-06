@@ -180,10 +180,11 @@ process keeps a track record.
 
 ## 📄 Sample report
 
-See what a run produces: **[`reports/sample-report.html`](reports/sample-report.html)** — a real
-desk run (sanitized), one self-contained HTML file with charts inlined. Open it in a browser, or
-view it without cloning via a raw-HTML previewer (prepend `https://htmlpreview.github.io/?` to the
-file's GitHub URL).
+See what a run produces:
+**[`reports/report_2026-07-03_sample-desk-run_claude-opus-4-8.html`](reports/report_2026-07-03_sample-desk-run_claude-opus-4-8.html)**
+— a real desk run (sanitized), one self-contained HTML file with charts inlined, named per the
+`report_<date>_<title>_<model>` convention. Open it in a browser, or view it without cloning via a
+raw-HTML previewer (prepend `https://htmlpreview.github.io/?` to the file's GitHub URL).
 
 The sample (a July 2026 run over **INTC · MRVL · NKE · SOFI · KMX**) shows the format:
 
