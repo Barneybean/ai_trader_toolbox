@@ -182,17 +182,14 @@ process keeps a track record.
 
 ## 📄 Sample report
 
-Two real desk runs (sanitized), each one self-contained HTML file with charts inlined, named per
-the `report_<date>_<title>_<model>` convention:
+See what a run produces:
+**[`reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html`](reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html)**
+— a real **theme / industry-map desk run** (physical AI & humanoid robots), sanitized, one
+self-contained HTML file with charts inlined, named per the `report_<date>_<title>_<model>`
+convention: the value chain cut into layers, layer-ranked picks with decision scorecards and
+forecast fans, ETF alternatives, and a bilingual (EN / 中文) deck with a language toggle.
 
-- **[`reports/report_2026-07-03_sample-desk-run_claude-opus-4-8.html`](reports/report_2026-07-03_sample-desk-run_claude-opus-4-8.html)**
-  — a **daily desk run** over a five-name focus list: the funnel, callouts, and per-name charts.
-- **[`reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html`](reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html)**
-  — a **theme / industry-map run** (physical AI & humanoid robots): the value chain cut into
-  layers, layer-ranked picks with decision scorecards and forecast fans, ETF alternatives, and a
-  bilingual (EN / 中文) deck with a language toggle.
-
-Open them in a browser, or view without cloning via a raw-HTML previewer (prepend
+Open it in a browser, or view without cloning via a raw-HTML previewer (prepend
 `https://htmlpreview.github.io/?` to the file's GitHub URL).
 
 The sample (a July 2026 run over **INTC · MRVL · NKE · SOFI · KMX**) shows the format:
