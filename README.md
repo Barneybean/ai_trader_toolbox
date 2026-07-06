@@ -63,6 +63,8 @@ Three main ways to use it:
 - Out of the box, nothing is ever bought or sold without your confirmation.
 - Power users can tweak the skill files to automate more of the loop — up to a fully automatic
   trading tool. That's your call and your risk; the shipped default always asks first.
+- [See it in action](#robinhood-connect-your-ai-agent-agentic-trading) — a screenshot of
+  agent-placed orders resting in a real Robinhood agentic account.
 
 ---
 
@@ -293,6 +295,15 @@ confirmation). Follow Robinhood's official setup:
 > connector and order placement. Enable the connector, then put the authorized account into
 > `config.local.toml` (git-ignored). The desk still **confirms every order with you before
 > placing it** unless you change that default.
+
+**What it looks like when the desk trades** — the Robinhood Activity feed after two desk runs:
+every order was recommended by the desk, previewed, user-confirmed, then placed by the agent
+(note the 🤖 agent icon on each row). Limit buys rest at the desk's support-shelf entries as
+queued GTC orders; nothing fills until the market comes to the plan's price:
+
+<div align="center">
+<img src="docs/agentic-orders-robinhood.png" width="820" alt="Robinhood Activity feed showing AI-agent-placed limit buy orders: NVIDIA and MP Materials placed, Cameco, Nike and SoFi queued — each row marked with the agent icon, all resting as limit orders while the account holds zero shares.">
+</div>
 
 The design goal is **one broker-adapter interface** — add a broker by implementing a single class.
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
