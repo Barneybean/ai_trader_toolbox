@@ -236,7 +236,7 @@ skills/private/
 journal/decisions.jsonl
 journal/reflections.md
 reports/*.html
-!reports/sample-report.html
+!reports/report_2026-07-03_sample-desk-run_claude-opus-4-8.html
 reports/*.md
 reports/charts/*.svg
 
