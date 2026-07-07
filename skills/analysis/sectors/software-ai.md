@@ -19,4 +19,3 @@ hyperscaler capex guides.
 
 **Variant angle:** real AI revenue attach the market lumps in with hype; an NRR/margin inflection
 before it shows in prints; a platform quietly becoming the aggregator of a category.
-

@@ -63,4 +63,3 @@ calls on high-conviction names** — a tiny position (≲0.15–1%) on a multi-q
 Jan-2027, SOFI, Google/Intel calls — all taken to profit). **Short-dated options = gambling**
 ("玩多了长期都亏钱") — avoid. Use puts only as brief tactical hedges at highs, taken to profit in days,
 not as a standing book.
-

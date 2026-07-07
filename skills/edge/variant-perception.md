@@ -62,4 +62,3 @@ Rules: **quantify everything**, **date every source**, **separate fact from infe
 ## Calibration (don't boil the ocean)
 
 Scale depth to stakes. A quick tactical swing needs levels + one catalyst check. A **Core / high-conviction / larger-size** idea demands the full variant statement + primary-source dossier. Screening the whole universe: run this cheaply as a filter first (which names even *have* a plausible variant angle?), then go deep on the survivors.
-

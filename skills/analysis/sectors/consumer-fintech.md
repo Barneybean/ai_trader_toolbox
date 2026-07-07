@@ -32,4 +32,3 @@ signal near the top.*
 
 **Variant angle:** a product/ecosystem flywheel the market values as a brokerage; a trust/
 regulatory moat that shows up in deposits before revenue.
-

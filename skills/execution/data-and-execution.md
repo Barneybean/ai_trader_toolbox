@@ -72,7 +72,32 @@ plain-English signal summary. Interpret it per `skills/analysis/quant-levels.md`
 high/low, the summary flags that ATR/ADX/Stoch/S-R are degraded to closes.
 
 Pass `--float <shares>` (from `get_equity_fundamentals`) to enable the exact turnover-decay
-**chip/cost-basis distribution** instead of the recency-decay proxy.
+**chip/cost-basis distribution (筹码分布)** instead of the recency-decay proxy.
+
+### Longer history — Yahoo Finance (`scripts/yahoo.py`)
+
+The Robinhood connector serves only ~1 year of daily bars. Base rates and the Monte-Carlo
+bootstrap in `scripts/forecast.py` get materially better with a longer sample, so pull multi-year
+history from Yahoo (pure stdlib, no key, split/dividend-adjusted by default):
+
+```bash
+python3 scripts/yahoo.py MP --range 5y --out reports/data/MP.json   # 5y daily → analytics-ready JSON
+python3 scripts/indicators.py reports/data/MP.json --price <live>   # same file feeds every script
+```
+
+It emits the exact bar shape `indicators.py` / `charts.py` / `forecast.py` already parse, so it is a
+drop-in for the connector historicals. `forecast.py` also accepts a **bare ticker** directly (auto-
+fetches from Yahoo) for both the subject and `--peers`:
+
+```bash
+python3 scripts/forecast.py MP --price 53.31 --peers ALB,SQM --breakout 60.19 --breakdown 51.63
+```
+
+Notes: use `--raw` for literal traded prices (chips/levels) vs. the default back-adjusted series
+(returns math); the **squeeze percentile is lookback-dependent** (a band tight vs. 1y can be mid-pack
+vs. 5y — state the window). Yahoo is a courtesy public endpoint: cache to a file, don't hammer. Keep
+using the connector for **live quotes, fundamentals, tradability, positions, and all order handling**
+— Yahoo is history only.
 
 ### Charts & the HTML report
 
@@ -87,7 +112,7 @@ python3 scripts/charts.py <historicals.json> --symbol <T> --price <live> --float
 
 `charts.py` writes three SVGs and prints a ready-to-paste markdown embed block: **price/volume**
 (candles, SMA 20/50/200, Bollinger, the S/R ladder as zones, volume sub-panel), **chips** (the
-chip-distribution histogram — profit vs. trapped split, main cost-basis shelf, high-volume nodes), and
+筹码分布 histogram — profit vs. trapped split, main cost-basis shelf, high-volume nodes), and
 **gauges** (RSI/Stochastic/ADX/rel-volume meters + trend/MACD/OBV/scaffold badges). Paste the embed
 block into that name's block in the markdown. It shares `indicators.py`, so the charts and cited
 numbers never disagree. (`--only price,chips,gauges` to subset; `charts.sparkline()` gives an inline
@@ -115,7 +140,8 @@ The desk RECOMMENDS. It does not trade on its own. When the user wants to act on
 recommendation:
 
 1. **Restate the exact order:** symbol, buy/sell, quantity, order type (prefer limit), limit price,
-   and the configured tradable account.
+   **session + time-in-force** (default **24-hour / `all_day_hours` + `gtc`** — see below), and the
+   configured tradable account.
 2. **Preview it:** call `review_equity_order` (or `review_option_order`) and show the broker's
    preview — estimated cost, buying-power impact, any warnings.
 3. **Get explicit confirmation:** ask for a clear "yes" tied to that specific preview. A watchlist,
@@ -127,9 +153,56 @@ recommendation:
 If anything is ambiguous — quantity, price, which account, whether the user actually meant "do it" —
 do NOT place the order. Ask. An un-placed order costs nothing; a wrong one costs real money.
 
+**Session — default to the 24-hour market.** Place resting limits with `market_hours="all_day_hours"`
+(24-hour) and `time_in_force="gtc"` by **default**, so the order is live around the clock and catches
+an **overnight / pre-market flush** the instant it happens instead of lying dormant until the regular
+9:30–4 session. A `regular_hours`-only order misses any move outside RTH — for buy-the-wash resting
+limits that is a real, avoidable miss. Caveats:
+- **Whole shares only.** Fractional / dollar-based orders place *only* in `regular_hours`; a 24-hour
+  order must be a **whole-share limit** — round the dollar target to whole shares (e.g. "$120 of MP
+  at $46" → **3 sh**, note the rounding in the restate).
+- **Always a limit, never a market, off-hours.** Overnight/extended liquidity is thin and spreads
+  gape — a market order can fill far from the last print. Rest a limit at your level.
+- **Not every name is 24-h-eligible.** If the broker rejects `all_day_hours`, fall back to
+  `regular_hours` and say so in the confirmation.
+- **Re-point dormant orders.** To move an existing `regular_hours` resting order onto the 24-hour
+  session, **cancel-and-replace** at the same price/qty (there is no in-place session edit); offer
+  this whenever the book still holds RTH-only dip orders.
+- Still below market = still resting: 24-hour changes *when* a marketable order *can* fill, not
+  *whether* a below-market limit fills — be explicit with the user that a flush order won't fill at
+  the current price in any session.
+
 Options require the account to carry the appropriate option level; check before proposing option
 trades. To modify/cancel, use `cancel_equity_order` / `cancel_option_order` and confirm the same
 way.
+
+## Action-price alerts — the levels registry (every recommendation registers its price)
+
+The connector has **no push price-alert API** (scans are pull-based screeners), so the desk
+guarantees alerting with three mechanisms, strongest first:
+
+1. **Order-as-alert (agentic account only, pre-confirmed only).** When the user has explicitly
+   confirmed an entry/exit at a level, a resting **GTC + `all_day_hours` whole-share limit** *is*
+   the alert — it self-executes the moment price arrives, 24h. The confirm-before-every-order rule
+   above still applies in full; never place one from a briefing alone.
+2. **The levels registry + sweep (always).** Every recommendation that names an action price —
+   buy zone, add-on-wash level, trim/stop, re-entry trigger, breakout/breakdown gate — **must be
+   written to `journal/action-levels.jsonl`** (ticker, level, direction `below`/`above`, action
+   text, source report, set/expiry dates, optional `not_before` for wash-sale-gated re-entries).
+   **Every desk run starts by running `python3 scripts/check_alerts.py`** and leads the report
+   with any TRIGGERED levels ("alerts hit since last run") before new analysis. The check uses
+   daily **lows/highs since the set date**, not just the last close — intraday touches count,
+   because washes and breakouts rarely wait for the close. The user can also run it standalone
+   anytime (Yahoo data, no broker login).
+3. **App alerts for real-time push.** For levels the user wants push-notified between desk runs,
+   end the report with the explicit list to set manually in the Robinhood app ("set alerts:
+   SYM 40, MP 52, …") — the desk cannot set these via the connector.
+
+Registry hygiene: remove a level when acted on or the thesis changes (a stale level is a false
+alert); date-gate wash-sale re-entries with `not_before`; expire zone-entries tied to a catalyst
+(e.g. "add only before earnings") on the catalyst date. TRIGGERED means *re-validate then act* —
+levels are recommendations frozen in time, and the desk re-checks the thesis (news, phase, volume)
+with live quotes before executing anything.
 
 ## Safety notes
 
@@ -138,3 +211,28 @@ way.
 - If the connector returns errors or stale data, surface that plainly; do not paper over gaps with
   guesses.
 
+## Account-data confinement (hard rules)
+
+Account data — **account numbers, holder names, balances/buying power, position quantities and
+values, order history** — is for **in-session analysis only**. It must never leave the desk
+unmasked:
+
+1. **Identifiers are masked EVERYWHERE, always.** Any account number, holder name, or connector
+   UUID in *any* committed artifact (reports, journal, skills, README, commit messages) uses the
+   masked form only — last-4 (`••••1234`). Full identifiers live solely in `config.local.toml`
+   and `scripts/pii_denylist.local.txt` (both git-ignored). Enforced by
+   `scan_pii.py --accounts-only`, which the hooks now run on **every branch, private included**.
+2. **Values & positions never reach the public repo.** Dollar balances, share counts, cost bases,
+   and P&L may appear in private-branch reports (that's their purpose) but are blocked from the
+   public branch by the existing gate (`reports/`, `journal/` are git-ignored; framework files
+   must use illustrative placeholder numbers, never real ones).
+3. **Nothing account-related goes online.** Never include account identifiers, balances, or real
+   position details in web searches, fetched URLs, artifacts, PR/issue text, cloud-agent prompts,
+   or any external service call. When an external query needs context, use the ticker and
+   generic sizing ("a mid-5-figure position"), never the actual numbers.
+4. **Screenshots are PII too.** The text gate cannot read pixels — before committing any image,
+   crop/blur account numbers, names, balances, and anything identifying (see
+   `docs/agentic-orders.png` precedent: bottom strip cropped before commit).
+5. **New account identifiers get denylisted immediately.** First time the desk sees a new
+   account number/holder name from the connector, add it to `scripts/pii_denylist.local.txt`
+   in the same session.

@@ -64,4 +64,3 @@ python3 scripts/track_record.py reflect --id <decision-id> \
 
 ## Guardrail
 Reflection tunes conviction and sizing; it never overrides a hard gate, a stop-loss, or a genuine thesis break. Learning that a setup "usually works" is not license to skip the stress-test on the next one.
-

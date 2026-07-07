@@ -17,4 +17,3 @@ negative at scale.
 
 **Variant angle:** a unit-economics inflection the market can't see yet; a category-defining
 platform (`skills/edge/thematic-waves.md`) mispriced as a hardware vendor.
-

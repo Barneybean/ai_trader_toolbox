@@ -29,4 +29,3 @@ deep-undervalued quality with a cash floor. Ran to $70+.
 
 **Variant angle:** an rNPV ignored because the market fixates on one asset; a cash floor under a
 hated name; a catalyst the generalist calendar misses.
-

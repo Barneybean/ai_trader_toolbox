@@ -64,3 +64,35 @@ Study prior revolutions for *who rose, who fell, and why* — the structure repe
 
 **Guardrails.** Don't chase a wave that's already consensus and late — exactly where the Cisco-2000 round-trip happens. Pair every theme with entry/valuation discipline. Separate a **category-definer** (own through drawdowns) from a **bottleneck-spiker** (ride and exit) — they demand opposite holding behavior.
 
+## Rotation detection + the base-position rule
+
+The single most valuable demonstrated skill of great sector traders: trimming a hot complex
+BEFORE it cracks and rotating into unloved defensives early — the trim block falls over the
+following weeks while the destinations rip. Two mechanisms, now desk doctrine:
+
+**1. Notice the crack early — run `python3 scripts/rotation_radar.py` (weekly + any macro step).**
+The tell is *relative and quiet*: a sector still up hugely over 3 months whose 21-day relative
+strength has flipped negative (label: COOLING) — the crowd still sees the 3-month chart; the
+tape is already leaving. Confirmations, per name inside the sector: reverse-DCF implied growth
+absurd across the group (`valuation-quality-gate.md`), BB widths at extremes, leadership
+narrowing to 1–2 names, insider-selling clusters, and the variant-perception test failing
+("everyone knows" = no edge left). Destinations show as TURNING (RS21 flips positive off a
+depressed base) — underwrite them THEN, while they're still unloved; by the time the rotation
+makes headlines the easy leg is gone.
+
+**2. Rotation exits trim to a BASE, never to zero — false-negative insurance.**
+A rotation call is a *probabilistic timing* call, not a thesis break — so it gets a partial
+exit. The pattern: take profit down to a ~1–3% remainder and hold it. Why the base is
+load-bearing: (a) if the "selloff" is a false negative and the secular
+wave resumes, the base participates and is easy to rebuild around (no re-entry paralysis);
+(b) it keeps the name on the tape you actually watch; (c) it caps the regret asymmetry —
+being wrong about a rotation costs basis points, being out of a secular winner costs
+multiples. **Contrast rule:** a broken thesis (a deteriorating balance sheet, a structural
+markdown) exits FULLY — insurance is for timing risk, not for hope in a broken business.
+Sizing grammar: secular definer + rotation cooling → trim to 1–3% base; spiker → spiker rules
+(ride/stop, no base owed); broken thesis → zero.
+
+Wire-up: radar runs in Step 2b (macro/wave) of `SKILL.md`; COOLING on a held sector triggers
+trim-to-base review in the report; TURNING sectors feed Step 1 candidate hunting; every
+rotation trim is logged as a `layer-rotation` insight so the scorer measures the desk's (and
+the mentor's) rotation lead time.

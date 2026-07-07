@@ -16,4 +16,3 @@ Answer what a specialist would ask — not generic fundamentals._
 **Archetype / worked example:** a named case showing the pattern.
 
 **Variant angle:** what insiders track that generalists miss (`skills/edge/variant-perception.md`).
-

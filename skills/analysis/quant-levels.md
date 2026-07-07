@@ -109,4 +109,3 @@ Per candidate, a tight block the PM and CIO can act on:
 Separate **fact** (computed numbers) from **judgment** (interpretation). Flag degraded data: no
 high/low in the feed → summary carries a WARNING and ATR/ADX/Stoch/S-R are approximated from
 closes — say so, lower confidence.
-

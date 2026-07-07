@@ -25,10 +25,10 @@ Wyckoff cycle: **Accumulation → Markup → Distribution → Markdown.**
 
 Call the phase FIRST. "Cheap" in markdown is a knife; a dull base in late accumulation is the setup.
 
-## Chip / cost-basis distribution
+## Chip / cost-basis distribution (筹码分布)
 
 Shares by the price holders bought at. Read:
-- **Concentration vs. dispersion.** **Single dense peak** after a long base = supply
+- **Concentration vs. dispersion.** **Single dense peak** (筹码集中) after a long base = supply
   absorbed at one cost zone = accumulation likely complete = bullish. **Multiple peaks / heavy
   overhead** = trapped holders (套牢盘) above = resistance on the way up.
 - **Chip migration.** Low-cost base chips **moving up** (via turnover/换手) into higher zones =
@@ -38,7 +38,7 @@ Shares by the price holders bought at. Read:
   until absorbed. Light overhead = clean runway.
 
 **The desk computes it — `scripts/indicators.py` → `chip_distribution`.** Builds an actual
-chip distribution from volume-at-price: walks daily bars, distributes each day's volume across its range,
+筹码分布 from volume-at-price: walks daily bars, distributes each day's volume across its range,
 and **decays older chips by turnover** (exact with `--float <shares>`; recency half-life
 otherwise) so the profile reflects who holds *now*. Fields:
 - **`main_cost_basis`** — zone with the most chips (主力成本 / big money's average). Below price
@@ -95,8 +95,36 @@ peak), volume dried then **expanding on up-moves**, price **reclaims and holds a
 the 50-DMA**, OBV to new highs, overhead absorbed. "Expect a couple more washes before it's
 boosted" = base **immature** — still accumulating; be patient, buy the flushes.
 
+## Ownership structure gate — WHO holds the stock decides which playbook applies
+
+Before applying the phase map, pull the **ownership mix** (institutional %, insider/founder %,
+retail remainder; float as % of shares outstanding — 13F aggregates / fundamentals at workup
+time). The whole framework above models *institutional* behavior — its reliability scales with
+how much of the float institutions actually control:
+
+- **Institution-heavy (≳70% of float)** — the standard case. Accumulation/distribution mechanics,
+  chip washes, and phase reads are **most reliable**: price is set by a small number of large,
+  deliberate actors leaving footprints. Trust the map; buy the washes.
+- **Retail/believer-heavy (e.g. TSLA, meme names, hot small-cap spikers)** — price is NOT solely
+  set by institutional flows. A large believer cohort **doesn't sell shakeouts**, buys every dip,
+  and sustains valuations institutions won't (TSLA's multiple) — so washes fail to flush,
+  "distribution tops" keep reclaiming, and sentiment/narrative/options flows (gamma squeezes)
+  dominate. **Downweight the phase map; upweight catalysts, sentiment, and momentum structure.**
+  These names overshoot both ways — ride with stops, don't fade them on Wyckoff logic alone.
+- **Founder/insider-controlled tiny float (e.g. SYM ~12% float)** — read chips on the **float
+  only**, not shares outstanding. Small float = footprints show fast but moves are violent in
+  both directions; size smaller, expect exaggerated washes.
+- **Mixed/strategic holders (government stakes, anchor customers)** — a non-economic holder who
+  never sells shrinks effective float and dampens distribution risk; note it explicitly.
+
+The judgment to log: **"whose stock is this?"** — because the same chart pattern is a
+deliberate institutional wash in an institution-heavy name and mere sentiment chop in a
+retail-heavy one.
+
 ## The judgment to produce (per name)
 
+0. **Ownership gate** — institutional / retail / insider mix → which playbook applies and at
+   what confidence.
 1. **Phase call** — accumulation / markup / distribution / markdown, with evidence (price
    structure + volume + OBV + chip/S-R concentration).
 2. **Chip read** — where concentration and overhead supply sit; is the base holding.
@@ -119,4 +147,3 @@ weekly close well below $40 on *heavy* volume with OBV breaking down.
 
 **Guardrails:** probabilistic — always confirm with volume + OBV, distinguish wash from
 markdown, and only apply where the fundamental thesis supports accumulation.
-

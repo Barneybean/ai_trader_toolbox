@@ -53,4 +53,3 @@ Selling is noisier — execs sell for taxes, diversification, houses, divorces. 
 - Context the sell: a departing exec, known diversification plan, or 10b5-1 is weak signal.
 - Small/illiquid names: insider buys can be promotional; weight less and cross-check.
 - Insiders are early and can be **wrong/early** — this sharpens conviction and timing; it does not replace the thesis, the levels, or the risk cap.
-

@@ -50,4 +50,3 @@ Reads the full debate and issues a **committed stance on a 5-point scale**, mapp
 - The debate **serves** the CIO gate and rubric, doesn't replace them. A Strong-Buy still clears every hard gate in `skills/decision/review-rubric.md` (RR ≥ 2, defined invalidation, sleeve-appropriate edge, conviction ≥ Medium).
 - The bear's attack **is** the `skills/decision/stress-test.md` — don't run them separately; the stress-test is the bear's ammunition.
 - Keep the desk's voice: variant perception, secular-wave position, chip/phase read, and the mentor's "buy weakness in quality" lens are the *substance* debated. This is the ring; the edge doctrine is the fighter.
-
