@@ -235,6 +235,10 @@ skills/private/
 # Personal trade data — a run's outputs, not framework. (The starter ships empty dirs.)
 journal/decisions.jsonl
 journal/reflections.md
+journal/action-levels.jsonl
+journal/insights.jsonl
+journal/mentor-book.json
+reports/.build/
 reports/*.html
 !reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html
 reports/*.md

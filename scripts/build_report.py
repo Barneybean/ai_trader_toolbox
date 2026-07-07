@@ -77,6 +77,17 @@ def _svg_inline(src, base_dir, charts_dir):
     return None
 
 
+def _svg_is_tall(svg, ratio=0.85):
+    """True when an inlined SVG's aspect (h/w) is >= ratio — a portrait/near-square
+    chart that shouldn't be upscaled to full container width."""
+    m = re.search(r"viewBox='0 0 ([\d.]+) ([\d.]+)'", svg) or \
+        re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
+    if not m:
+        return False
+    w, h = float(m.group(1)), float(m.group(2))
+    return bool(w) and (h / w) >= ratio
+
+
 def _render_images(line, base_dir, charts_dir):
     """A line that is only image(s) → a figure row (charts side by side). Inlines
     SVGs when possible. Returns HTML, or None if the line isn't image-only."""
@@ -87,7 +98,11 @@ def _render_images(line, base_dir, charts_dir):
     for alt, src in imgs:
         svg = _svg_inline(src, base_dir, charts_dir) if src.endswith(".svg") else None
         if svg:
-            figs.append(f"<figure class='chart'>{svg}</figure>")
+            # A portrait-ish chart (e.g. the chip histogram) blows up if it fills a
+            # full-width lone row — tag it so CSS can cap its width to match the
+            # half-width charts instead of upscaling it to a giant tower.
+            tall = " tall" if _svg_is_tall(svg) else ""
+            figs.append(f"<figure class='chart{tall}'>{svg}</figure>")
         else:
             figs.append(f"<figure class='chart'>"
                         f"<img src='{html.escape(src)}' alt='{html.escape(alt)}'></figure>")
@@ -124,9 +139,94 @@ _CALLOUTS = {
 
 
 def _callout(kind, body, base_dir, charts_dir):
-    cls, label = _CALLOUTS.get(kind.upper(), ("callout-note", kind.title()))
+    k = kind.upper()
+    if k == "VERDICT":   # the headline call — a full-width banner, not a small box
+        return (f"<div class='verdict'><span class='verdict-tag'>The call</span>"
+                f"<div class='verdict-body'>{_inline(body, base_dir, charts_dir)}</div></div>")
+    if k == "QUOTE":     # the thesis in one line — a big pull-quote
+        return f"<p class='quote'>{_inline(body, base_dir, charts_dir)}</p>"
+    if k == "KICKER":    # a section eyebrow / where-am-I label
+        return f"<div class='kicker'>{_inline(body, base_dir, charts_dir)}</div>"
+    cls, label = _CALLOUTS.get(k, ("callout-note", kind.title()))
     return (f"<div class='callout {cls}'><span class='callout-label'>{label}</span>"
             f"{_inline(body, base_dir, charts_dir)}</div>")
+
+
+def _render_kpis(inner_lines, base_dir, charts_dir):
+    """Render a `::: kpi` block into a responsive tile grid. Each non-empty line is
+    `Value | Label | tone?` where tone ∈ pos|neg|warn (colours the tile)."""
+    tiles = []
+    for ln in inner_lines:
+        ln = ln.strip().lstrip("-").strip()
+        if not ln:
+            continue
+        cells = [c.strip() for c in ln.split("|")]
+        value = cells[0] if cells else ""
+        label = cells[1] if len(cells) > 1 else ""
+        tone = cells[2].lower() if len(cells) > 2 else ""
+        cls = {"pos": "kpi-pos", "neg": "kpi-neg", "warn": "kpi-warn"}.get(tone, "")
+        tiles.append(f"<div class='kpi {cls}'>"
+                     f"<div class='kpi-v'>{_inline(value, base_dir, charts_dir)}</div>"
+                     f"<div class='kpi-l'>{_inline(label, base_dir, charts_dir)}</div></div>")
+    return f"<div class='kpi-grid'>{''.join(tiles)}</div>"
+
+
+_TONE = {"pos": "teal", "teal": "teal", "buy": "teal",
+         "neg": "rust", "rust": "rust", "avoid": "rust", "risk": "rust",
+         "ink": "ink", "navy": "ink"}
+
+
+def _render_compare(inner_lines, base_dir, charts_dir):
+    """`::: compare` → side-by-side cards. Each line: `Label | Phrase | Body | tone?`
+    (tone ∈ pos/teal · neg/rust · ink). Holds the tension between two reads."""
+    cards = []
+    for ln in inner_lines:
+        ln = ln.strip().lstrip("-").strip()
+        if not ln:
+            continue
+        c = [x.strip() for x in ln.split("|")]
+        lab = c[0] if c else ""
+        phrase = c[1] if len(c) > 1 else ""
+        body = c[2] if len(c) > 2 else ""
+        tone = _TONE.get(c[3].lower(), "") if len(c) > 3 else ""
+        cards.append(f"<div class='ccard {tone}'><div class='lab'>{_inline(lab, base_dir, charts_dir)}</div>"
+                     f"<div class='phrase'>{_inline(phrase, base_dir, charts_dir)}</div>"
+                     + (f"<div class='body'>{_inline(body, base_dir, charts_dir)}</div>" if body else "")
+                     + "</div>")
+    return f"<div class='compare'>{''.join(cards)}</div>"
+
+
+def _render_timeline(inner_lines, base_dir, charts_dir):
+    """`::: timeline` → chevron-linked cards. Each line: `When | What`. Use only for
+    a real dated sequence (order carries information)."""
+    cards = []
+    for ln in inner_lines:
+        ln = ln.strip().lstrip("-").strip()
+        if not ln:
+            continue
+        c = [x.strip() for x in ln.split("|")]
+        when = c[0] if c else ""
+        what = c[1] if len(c) > 1 else ""
+        cards.append(f"<div class='tcard'><div class='when'>{_inline(when, base_dir, charts_dir)}</div>"
+                     f"<div class='what'>{_inline(what, base_dir, charts_dir)}</div></div>")
+    return f"<div class='timeline'>{''.join(cards)}</div>"
+
+
+def _render_hero(inner_lines, base_dir, charts_dir):
+    """`::: hero` → one giant number that IS the message. First non-empty line:
+    `Number | caption | tone?`."""
+    for ln in inner_lines:
+        ln = ln.strip().lstrip("-").strip()
+        if not ln:
+            continue
+        c = [x.strip() for x in ln.split("|")]
+        num = c[0] if c else ""
+        cap = c[1] if len(c) > 1 else ""
+        tone = _TONE.get(c[2].lower(), "") if len(c) > 2 else ""
+        return (f"<div class='hero {tone}'><div class='hero-num'>{_inline(num, base_dir, charts_dir)}</div>"
+                + (f"<div class='hero-cap'>{_inline(cap, base_dir, charts_dir)}</div>" if cap else "")
+                + "</div>")
+    return ""
 
 
 # Plain-English definitions for jargon — the builder auto-links the FIRST occurrence of
@@ -250,6 +350,35 @@ def markdown_to_html(md, base_dir, charts_dir):
             i += 1
             continue
 
+        # fenced container: ::: details <summary> / ::: kpi … closed by a bare :::
+        if line.startswith(":::"):
+            close_para(); close_lists()
+            fm = re.match(r"^:::+\s*(\w+)?\s*(.*)$", line)
+            ctype = (fm.group(1) or "").lower()
+            ctitle = (fm.group(2) or "").strip()
+            i += 1
+            inner = []
+            while i < len(lines) and lines[i].strip() != ":::":
+                inner.append(lines[i]); i += 1
+            i += 1  # consume the closing :::
+            if ctype == "kpi":
+                out.append(_render_kpis(inner, base_dir, charts_dir))
+            elif ctype == "compare":
+                out.append(_render_compare(inner, base_dir, charts_dir))
+            elif ctype == "timeline":
+                out.append(_render_timeline(inner, base_dir, charts_dir))
+            elif ctype == "hero":
+                out.append(_render_hero(inner, base_dir, charts_dir))
+            elif ctype == "details":
+                inner_html = markdown_to_html("\n".join(inner), base_dir, charts_dir)
+                summ = _inline(ctitle or "Full analysis — expand", base_dir, charts_dir)
+                out.append(f"<details class='deep'><summary>{summ}</summary>"
+                           f"<div class='deep-body'>{inner_html}</div></details>")
+            else:
+                inner_html = markdown_to_html("\n".join(inner), base_dir, charts_dir)
+                out.append(f"<div class='box'>{inner_html}</div>")
+            continue
+
         # headings
         m = re.match(r"^(#{1,4})\s+(.*)$", line)
         if m:
@@ -349,77 +478,217 @@ def markdown_to_html(md, base_dir, charts_dir):
 # --------------------------------------------------------------------------- #
 
 CSS = """
-:root{color-scheme:dark;}
+/* Editorial "printed desk memo" theme — warm parchment ground, ink navy, a
+   three-accent system (brass gold / pine teal / terracotta rust). Deliberately
+   one committed light world (like a printed report); holds its ground in any
+   viewer theme rather than inverting. */
+:root{
+  --paper:#f4efe3; --card:#ffffff; --ink:#1c2a37; --ink2:#42505d; --muted:#6c7682;
+  --line:#e4ddcd; --gold:#a2792c; --gold-soft:#f4ecd8; --gold-line:#e7d6ab;
+  --teal:#3c7365; --teal-soft:#e7efe9; --teal-line:#cfe0d6;
+  --rust:#b04e2d; --rust-soft:#f7e7df; --rust-line:#eccdbd;
+}
 *{box-sizing:border-box;}
-body{margin:0;background:#0a0d12;color:#c9d1d9;
-  font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  line-height:1.6;font-size:15px;}
-.wrap{max-width:1040px;margin:0 auto;padding:0 22px 80px;}
-body::before{content:"";display:block;height:3px;
-  background:linear-gradient(90deg,#26a69a,#58a6ff 55%,#bc8cff);}
-.wrap>h1:first-child{margin-top:34px;}
-h1{font-size:27px;line-height:1.22;margin:.2em 0 .35em;color:#f0f3f6;letter-spacing:-.01em;
-  font-weight:720;}
-h2{font-size:19px;margin:2.2em 0 .6em;padding-bottom:.3em;border-bottom:1px solid #222b36;color:#e6edf3;}
-h3{font-size:16px;margin:0 0 .5em;color:#f0f3f6;}
-h4{font-size:14px;margin:1.2em 0 .4em;color:#e6edf3;}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",
+    ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  line-height:1.62;font-size:15.5px;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:0 26px 90px;counter-reset:slide;}
+body::before{content:"";display:block;height:4px;
+  background:linear-gradient(90deg,var(--gold),var(--teal) 55%,var(--rust));}
+.wrap>h1:first-child{margin-top:40px;}
+h1{font-size:clamp(30px,5vw,46px);line-height:1.1;margin:.1em 0 .35em;color:var(--ink);
+  letter-spacing:-.02em;font-weight:850;text-wrap:balance;}
+h2{font-size:clamp(22px,3vw,30px);margin:2.4em 0 .7em;color:var(--ink);font-weight:850;
+  letter-spacing:-.015em;counter-increment:slide;text-wrap:balance;}
+h2::before{content:counter(slide);display:inline-block;min-width:1.4em;margin-right:.45em;
+  color:var(--gold);font-variant-numeric:tabular-nums;font-weight:850;}
+h3{font-size:19px;margin:0 0 .5em;color:var(--ink);font-weight:850;letter-spacing:-.01em;}
+h4{font-size:14px;margin:1.3em 0 .5em;color:var(--gold);font-weight:800;
+  text-transform:uppercase;letter-spacing:.06em;}
 p{margin:.6em 0;}
-p.meta{color:#8b949e;font-size:13.5px;margin:0 0 1.4em;padding-bottom:1.2em;
-  border-bottom:1px solid #1b2129;line-height:1.55;}
+p.meta{color:var(--muted);font-size:14px;margin:0 0 1.6em;padding-bottom:1.3em;
+  border-bottom:1px solid var(--line);line-height:1.55;}
 p.meta em{font-style:normal;}
-a{color:#58a6ff;text-decoration:none;}a:hover{text-decoration:underline;}
-strong{color:#e6edf3;font-weight:650;}
-code{background:#161b22;border:1px solid #222b36;border-radius:5px;padding:.08em .38em;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;color:#e6edf3;}
-hr{border:none;border-top:1px solid #222b36;margin:2em 0;}
+a{color:var(--gold);text-decoration:none;}a:hover{text-decoration:underline;}
+strong{color:var(--ink);font-weight:800;}
+code{background:var(--gold-soft);border:1px solid var(--gold-line);border-radius:5px;
+  padding:.08em .38em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.85em;color:#7a5c1f;}
+hr{border:none;border-top:1px solid var(--line);margin:2.2em 0;}
 ul,ol{margin:.5em 0 .9em;padding-left:1.3em;}
-li{margin:.28em 0;}
-blockquote{margin:1em 0;padding:.5em 1em;border-left:3px solid #30363d;
-  color:#8b949e;background:#0e131a;border-radius:0 6px 6px 0;font-size:.95em;}
-.card{background:#0e131a;border:1px solid #1f2731;border-radius:12px;
-  padding:18px 20px;margin:16px 0;box-shadow:0 1px 0 #05070a;}
-.card h3{border-left:3px solid #58a6ff;padding-left:10px;margin-left:-10px;}
+li{margin:.3em 0;}
+li::marker{color:var(--gold);}
+blockquote{margin:1em 0;padding:.5em 1.1em;border-left:3px solid var(--gold-line);
+  color:var(--ink2);background:var(--gold-soft);border-radius:0 8px 8px 0;font-size:.97em;}
+/* recommendation cards — white with a semantic left rail */
+.card{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--muted);
+  border-radius:14px;padding:22px 26px;margin:18px 0;box-shadow:0 1px 2px rgba(28,42,55,.04);}
+.card h3{color:var(--ink);}
 .card ul{padding-left:1.15em;}
-.card li{margin:.4em 0;}
-.card-pos{border-color:#193b34;} .card-pos h3{border-left-color:#26a69a;}
-.card-neg{border-color:#3b1f22;} .card-neg h3{border-left-color:#ef5350;}
-.card-warn{border-color:#3a3115;} .card-warn h3{border-left-color:#f0b90b;}
-.card-neu h3{border-left-color:#58a6ff;}
-.table-wrap{overflow-x:auto;margin:1em 0;}
-table{border-collapse:collapse;width:100%;font-size:.92em;}
-th,td{border:1px solid #222b36;padding:7px 10px;text-align:left;vertical-align:top;}
-th{background:#161b22;color:#e6edf3;font-weight:600;}
-tr:nth-child(even) td{background:#0e131a;}
-.charts-row{display:flex;flex-wrap:wrap;gap:14px;margin:16px 0;align-items:flex-start;}
+.card li{margin:.42em 0;}
+.card-pos{border-left-color:var(--teal);}
+.card-neg{border-left-color:var(--rust);}
+.card-warn{border-left-color:var(--gold);}
+.card-neu{border-left-color:#40566b;}
+.table-wrap{overflow-x:auto;margin:1.2em 0;}
+table{border-collapse:collapse;width:100%;font-size:.93em;font-variant-numeric:tabular-nums;}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top;}
+th{background:var(--gold-soft);color:var(--ink);font-weight:800;}
+tr:nth-child(even) td{background:#faf6ec;}
+.charts-row{display:flex;flex-wrap:wrap;gap:16px;margin:18px 0;align-items:flex-start;}
 .charts-row .chart{flex:1 1 300px;min-width:0;}
-.charts-one{margin:16px 0;}
-figure.chart{margin:0;background:#0d1117;border:1px solid #1f2731;border-radius:10px;
-  padding:8px;overflow:hidden;}
+.charts-one{margin:18px 0;}
+/* a lone portrait chart (chip histogram) caps its width so it doesn't upscale into a tower */
+.charts-one figure.chart.tall{max-width:460px;}
+.charts-row .chart.tall{flex:0 1 300px;}
+figure.chart{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:10px;overflow:hidden;box-shadow:0 1px 2px rgba(28,42,55,.04);}
 figure.chart svg,figure.chart img{width:100%;height:auto;display:block;border-radius:6px;}
-.meta{color:#8b949e;font-size:13px;margin-top:-.3em;}
-.footer{margin-top:48px;padding-top:16px;border-top:1px solid #222b36;
-  color:#6e7681;font-size:12px;}
+.footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:12.5px;}
 /* jargon tooltips */
-abbr.gl{text-decoration:underline dotted #6e7681;text-underline-offset:3px;cursor:help;
-  border:0;}
-/* callout boxes */
-.callout{border:1px solid;border-radius:9px;padding:11px 14px;margin:14px 0;font-size:.95em;}
-.callout-label{display:block;font-weight:700;font-size:.74em;letter-spacing:.04em;
-  text-transform:uppercase;margin-bottom:4px;}
+abbr.gl{text-decoration:underline dotted var(--gold);text-underline-offset:3px;cursor:help;border:0;}
+/* callouts — semantic tinted boxes */
+.callout{border:1px solid;border-left-width:6px;border-radius:11px;padding:14px 18px;
+  margin:16px 0;font-size:.97em;background:var(--card);}
+.callout-label{display:block;font-weight:850;font-size:.72em;letter-spacing:.06em;
+  text-transform:uppercase;margin-bottom:5px;}
 .callout p{margin:.3em 0;}
-.callout-action{background:#0f2620;border-color:#1f6f52;}
-.callout-action .callout-label{color:#3fd39a;}
-.callout-action strong{color:#eafff6;}
-.callout-tip{background:#0d2030;border-color:#1c527d;}
-.callout-tip .callout-label{color:#6cb2ff;}
-.callout-warning{background:#241417;border-color:#7d2b30;}
-.callout-warning .callout-label{color:#ff6b6b;}
-.callout-note{background:#141a21;border-color:#2b333d;}
-.callout-note .callout-label{color:#8b949e;}
+.callout-action{background:var(--teal-soft);border-color:var(--teal-line);border-left-color:var(--teal);}
+.callout-action .callout-label{color:var(--teal);}
+.callout-tip{background:var(--gold-soft);border-color:var(--gold-line);border-left-color:var(--gold);}
+.callout-tip .callout-label{color:var(--gold);}
+.callout-warning{background:var(--rust-soft);border-color:var(--rust-line);border-left-color:var(--rust);}
+.callout-warning .callout-label{color:var(--rust);}
+.callout-note{background:#f0ece0;border-color:var(--line);border-left-color:var(--muted);}
+.callout-note .callout-label{color:var(--muted);}
+
+/* ── editorial deck components ───────────────────────────────────────────── */
+/* cover / title block */
+.cover{margin:34px 0 30px;padding:38px 40px 34px;border-radius:18px;
+  background:radial-gradient(130% 150% at 0% 0%,#fbf7ec 0%,#f4efe3 55%,#f0e9d9 100%);
+  border:1px solid var(--line);box-shadow:0 1px 2px rgba(28,42,55,.05);}
+.cover-kicker{font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--gold);font-weight:850;margin-bottom:14px;}
+.cover h1{font-size:clamp(32px,5.5vw,54px);margin:0 0 .3em;}
+.cover p.meta{border:0;padding:0;margin:0;color:var(--ink2);font-size:15px;}
+/* section eyebrow (> [!KICKER] ...) */
+.kicker{display:flex;align-items:center;gap:12px;font-size:12.5px;font-weight:850;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:2.6em 0 .2em;}
+.kicker::before{content:"";width:5px;height:19px;background:var(--gold);border-radius:2px;}
+/* KPI tiles */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:14px;margin:18px 0;}
+.kpi{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--muted);
+  border-radius:12px;padding:16px 18px;}
+.kpi-v{font-size:24px;font-weight:850;color:var(--ink);line-height:1.12;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;}
+.kpi-l{font-size:12.5px;color:var(--muted);margin-top:4px;}
+.kpi-pos{border-left-color:var(--teal);} .kpi-pos .kpi-v{color:var(--teal);}
+.kpi-neg{border-left-color:var(--rust);} .kpi-neg .kpi-v{color:var(--rust);}
+.kpi-warn{border-left-color:var(--gold);} .kpi-warn .kpi-v{color:var(--gold);}
+/* hero — one giant number carries the point (::: hero  NUMBER | caption | tone) */
+.hero{margin:22px 0;}
+.hero-num{font-size:clamp(56px,12vw,116px);font-weight:850;letter-spacing:-.03em;
+  line-height:.98;color:var(--gold);font-variant-numeric:tabular-nums;}
+.hero.teal .hero-num{color:var(--teal);} .hero.rust .hero-num{color:var(--rust);}
+.hero.ink .hero-num{color:var(--ink);}
+.hero-cap{margin-top:18px;font-size:clamp(15px,1.9vw,18px);color:var(--ink2);max-width:60ch;}
+/* comparison cards (::: compare  label | phrase | body | tone) */
+.compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:18px;margin:22px 0;}
+.ccard{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--gold);
+  border-radius:14px;padding:22px 24px;box-shadow:0 1px 2px rgba(28,42,55,.04);}
+.ccard.teal{border-left-color:var(--teal);} .ccard.rust{border-left-color:var(--rust);}
+.ccard.ink{border-left-color:#40566b;}
+.ccard .lab{font-size:13px;color:var(--muted);font-weight:700;margin-bottom:12px;}
+.ccard .phrase{font-size:clamp(22px,2.8vw,30px);font-weight:850;letter-spacing:-.01em;
+  line-height:1.12;color:var(--gold);}
+.ccard.teal .phrase{color:var(--teal);} .ccard.rust .phrase{color:var(--rust);}
+.ccard.ink .phrase{color:var(--ink);}
+.ccard .body{margin-top:12px;color:var(--ink2);font-size:15.5px;line-height:1.55;}
+/* timeline (::: timeline  when | what) */
+.timeline{display:flex;gap:0;flex-wrap:wrap;margin:22px 0;align-items:stretch;}
+.tcard{flex:1 1 160px;min-width:150px;background:var(--card);border:1px solid var(--line);
+  border-top:5px solid var(--gold);border-radius:12px;padding:18px 16px;position:relative;}
+.tcard + .tcard{margin-left:24px;}
+.tcard + .tcard::before{content:"›";position:absolute;left:-20px;top:50%;
+  transform:translateY(-50%);color:var(--gold);font-size:24px;font-weight:850;}
+.tcard .when{font-weight:850;color:var(--ink);font-size:16px;margin-bottom:9px;}
+.tcard .what{color:var(--ink2);font-size:14px;line-height:1.45;}
+/* pull-quote (> [!QUOTE] ...) — the thesis in one line */
+.quote{font-size:clamp(24px,4vw,40px);font-weight:850;letter-spacing:-.02em;line-height:1.2;
+  color:var(--ink);margin:34px 0 18px;text-wrap:balance;}
+.quote::before{content:"\\201C";color:var(--gold);}
+.quote::after{content:"\\201D";color:var(--gold);}
+/* the headline call banner (> [!VERDICT] ...) */
+.verdict{display:flex;align-items:center;gap:16px;margin:18px 0 8px;padding:18px 22px;
+  border-radius:14px;background:var(--teal-soft);border:1px solid var(--teal-line);
+  border-left:6px solid var(--teal);}
+.verdict-tag{flex:0 0 auto;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:850;color:var(--teal);border:1px solid var(--teal-line);border-radius:20px;
+  padding:5px 12px;background:var(--card);}
+.verdict-body{font-size:16.5px;color:var(--ink);line-height:1.5;}
+/* collapsible deep-dive */
+details.deep{margin:16px 0;border:1px solid var(--line);border-radius:12px;background:var(--card);
+  overflow:hidden;box-shadow:0 1px 2px rgba(28,42,55,.04);}
+details.deep>summary{cursor:pointer;list-style:none;padding:14px 20px;font-weight:800;
+  color:var(--ink);font-size:14.5px;display:flex;align-items:center;gap:10px;user-select:none;}
+details.deep>summary::-webkit-details-marker{display:none;}
+details.deep>summary::before{content:"\\25B8";color:var(--gold);font-size:12px;transition:transform .15s;}
+details.deep[open]>summary::before{transform:rotate(90deg);}
+details.deep>summary:hover{background:var(--gold-soft);}
+details.deep[open]>summary{border-bottom:1px solid var(--line);}
+.deep-body{padding:6px 22px 16px;}
+.deep-body>h4:first-child,.deep-body>p:first-child{margin-top:.7em;}
+.box{margin:16px 0;}
+/* bilingual toggle — EN / 中文 */
+.lang-toggle{position:sticky;top:0;z-index:20;display:flex;justify-content:flex-end;gap:0;
+  margin:0 -26px 8px;padding:10px 26px;background:rgba(244,239,227,.92);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);}
+.lang-toggle button{font:inherit;font-weight:800;font-size:13px;cursor:pointer;
+  border:1px solid var(--gold-line);background:var(--card);color:var(--muted);padding:6px 15px;}
+.lang-toggle button:first-child{border-radius:8px 0 0 8px;}
+.lang-toggle button:last-child{border-radius:0 8px 8px 0;border-left:0;}
+.lang-toggle button:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.lang{display:none;}
+:root:not([data-lang]) .lang-en{display:block;}      /* default before JS: English */
+:root[data-lang="en"] .lang-en{display:block;}
+:root[data-lang="zh"] .lang-zh{display:block;}
+:root[data-lang="en"] .lang-toggle .b-en,
+:root:not([data-lang]) .lang-toggle .b-en,
+:root[data-lang="zh"] .lang-toggle .b-zh{background:var(--gold);color:#fff;border-color:var(--gold);}
+/* print → a clean slide deck / PDF (keep colours, one section per page) */
+@media print{
+  html,body{background:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .lang-toggle{display:none;}
+  .wrap{max-width:none;padding:0 12px;}
+  .cover{break-after:page;}
+  h2{break-before:page;padding-top:8px;}
+  .card,.kpi-grid,.compare,.timeline,.hero,.verdict,figure.chart,.callout{break-inside:avoid;}
+  details.deep{border:0;box-shadow:none;}
+  details.deep>summary::before{content:"";}
+  details.deep>summary{color:var(--gold);font-size:12px;padding:6px 0;}
+  .deep-body{display:block !important;padding:0;}  /* expand every deep-dive for the PDF */
+}
 """
 
 
-def wrap_page(title, body):
+_TOGGLE = """<div class="lang-toggle" role="group" aria-label="Language / 语言">
+<button class="b-en" type="button" onclick="setLang('en')" aria-label="English">EN</button>
+<button class="b-zh" type="button" onclick="setLang('zh')" aria-label="中文">中文</button></div>
+<script>
+function setLang(l){document.documentElement.setAttribute('data-lang',l);
+  try{localStorage.setItem('deckLang',l)}catch(e){}}
+setLang((function(){try{return localStorage.getItem('deckLang')}catch(e){}})()
+  || (navigator.language||'').toLowerCase().indexOf('zh')===0 && 'zh' || 'en');
+</script>
+"""
+
+
+def wrap_page(title, body, bilingual=False):
+    toggle = _TOGGLE if bilingual else ""
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -427,7 +696,7 @@ def wrap_page(title, body):
 <title>{html.escape(title)}</title>
 <style>{CSS}</style>
 </head><body><div class="wrap">
-{body}
+{toggle}{body}
 <div class="footer">Generated by AI Trader · charts from
 <code>scripts/indicators.py</code> + <code>scripts/charts.py</code> · informational only, not financial advice.</div>
 </div></body></html>
@@ -439,16 +708,54 @@ def _title_from(md, fallback):
     return m.group(1).strip() if m else fallback
 
 
+_LANG_SPLIT = re.compile(r"^<!--\s*lang:zh\s*-->\s*$", re.M | re.I)
+
+
+def _split_langs(md):
+    """A single source file carries both languages: English first, then a
+    `<!-- lang:zh -->` marker line, then the 中文 version. Returns (en, zh|None)."""
+    m = _LANG_SPLIT.search(md)
+    if not m:
+        return md, None
+    return md[:m.start()].rstrip(), md[m.end():].lstrip()
+
+
+def _bilingual_wrap(en_body, zh_body):
+    return (f"<div class='lang lang-en' lang='en'>{en_body}</div>"
+            f"<div class='lang lang-zh' lang='zh'>{zh_body}</div>")
+
+
+def _wrap_cover(body):
+    """Promote the leading H1 (+ its dateline meta paragraph) into a title 'slide'."""
+    m = re.match(r"\s*<h1>(.*?)</h1>\s*(<p class='meta'>.*?</p>)?", body, re.S)
+    if not m:
+        return body
+    h1, meta = m.group(1), (m.group(2) or "")
+    cover = (f"<header class='cover'><div class='cover-kicker'>AI Trader · desk run</div>"
+             f"<h1>{h1}</h1>{meta}</header>")
+    return cover + body[m.end():]
+
+
+def _render_body(md, base_dir, charts_dir, glossary=True):
+    body = _wrap_cover(markdown_to_html(md, base_dir, charts_dir))
+    return _inject_glossary(body) if glossary else body
+
+
 def build(md_path, out_path=None, charts_dir=None):
     with open(md_path) as f:
         md = f.read()
     base_dir = os.path.dirname(os.path.abspath(md_path))
     if charts_dir is None:
         charts_dir = os.path.join(base_dir, "charts")
-    body = markdown_to_html(md, base_dir, charts_dir)
-    body = _inject_glossary(body)
-    title = _title_from(md, os.path.basename(md_path))
-    page = wrap_page(title, body)
+    en_md, zh_md = _split_langs(md)
+    title = _title_from(en_md, os.path.basename(md_path))
+    if zh_md is not None:
+        # bilingual: English (with jargon tooltips) + 中文 (Chinese explains its own terms)
+        body = _bilingual_wrap(_render_body(en_md, base_dir, charts_dir, glossary=True),
+                               _render_body(zh_md, base_dir, charts_dir, glossary=False))
+        page = wrap_page(title, body, bilingual=True)
+    else:
+        page = wrap_page(title, _render_body(en_md, base_dir, charts_dir), bilingual=False)
     if out_path is None:
         out_path = os.path.splitext(md_path)[0] + ".html"
     with open(out_path, "w", encoding="utf-8") as f:

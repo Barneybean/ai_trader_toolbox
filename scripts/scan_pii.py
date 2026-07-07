@@ -10,6 +10,10 @@ pre-commit hook).
     python3 scripts/scan_pii.py --all      # scan the whole working tree (respecting .gitignore)
     python3 scripts/scan_pii.py --staged    # scan only staged files (for a pre-commit hook)
 
+    python3 scripts/scan_pii.py --accounts-only  # tier-0: account identifiers ONLY — account
+                                                 # numbers and broker applinks must be masked
+                                                 # (last-4, e.g. ••••1234) in ANY committed file.
+
 Add project-specific strings to block in `scripts/pii_denylist.txt` (one per line, '#' comments).
 Tune ALLOW if a pattern is a legitimate false positive.
 """
@@ -80,10 +84,21 @@ def main():
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--all", action="store_const", dest="mode", const="all")
     g.add_argument("--staged", action="store_const", dest="mode", const="staged")
+    ap.add_argument("--accounts-only", action="store_true",
+                    help="tier-0 scan: account identifiers only — masked (last-4) forms required")
     ap.set_defaults(mode="tracked")
     args = ap.parse_args()
 
     denylist = load_denylist()
+
+    # Tier-0 (--accounts-only): committed artifacts must use masked account forms (last-4).
+    # Restrict the scan to the account-shaped patterns + the denylist.
+    if args.accounts_only:
+        tier0 = {"account_number with value", "broker applink w/ account"}
+        patterns = [(l, rx, h) for l, rx, h in PATTERNS if l in tier0]
+    else:
+        patterns = PATTERNS
+
     hard, warn = [], []
     for rel, full in tracked_files(args.mode):
         try:
@@ -94,12 +109,11 @@ def main():
             for term in denylist:
                 if term in line:
                     hard.append((rel, i, f"denylisted string '{term}'", line.strip()[:100]))
-            for label, rx, is_hard in PATTERNS:
-                for m in rx.finditer(line):
-                    if any(a in line for a in ALLOW):
-                        continue
-                    hit = (rel, i, label, line.strip()[:100])
-                    (hard if is_hard else warn).append(hit)
+            if any(a in line for a in ALLOW):
+                continue
+            for label, rx, is_hard in patterns:
+                if rx.search(line):
+                    (hard if is_hard else warn).append((rel, i, label, line.strip()[:100]))
 
     def show(rows, tag):
         for rel, i, label, snip in rows:
@@ -111,8 +125,12 @@ def main():
     if hard:
         print(f"\n❌ {len(hard)} BLOCKING match(es) — do NOT publish until resolved:")
         show(hard, "FAIL")
-        print("\nMove the value into config.local.toml / .env (git-ignored), or add a false "
-              "positive to ALLOW in scripts/scan_pii.py.")
+        if args.accounts_only:
+            print("\n  • Account identifier in a committed file — mask it to last-4 (e.g. ••••1234)")
+            print("    or move it into config.local.toml (git-ignored).")
+        else:
+            print("\nMove the value into config.local.toml / .env (git-ignored), or add a false "
+                  "positive to ALLOW in scripts/scan_pii.py.")
         sys.exit(1)
     print(f"\n✅ scan_pii: no blocking PII/credentials in {args.mode} files."
           + (f" ({len(warn)} warning(s) to eyeball.)" if warn else ""))

@@ -11,4 +11,3 @@ echo "   The server-side CI gate (.github/workflows/pii-scan.yml) is the definit
 echo
 echo "Tip: add your exact private strings (account #s, names) to scripts/pii_denylist.local.txt"
 echo "     (git-ignored) so the gate hard-blocks them too. See scripts/pii_denylist.example.txt."
-

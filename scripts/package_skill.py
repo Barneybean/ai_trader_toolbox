@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Only these top-level entries ship in the bundle (the skill, not the run artifacts).
 INCLUDE_TOP = ["SKILL.md", "AGENTS.md", "PORTABILITY.md", "README.md", "LICENSE",
-               "references", "scripts"]
+               "skills", "scripts"]
 # Never bundle these, at any depth.
 EXCLUDE_GLOBS = ["*.pyc", "__pycache__", ".DS_Store", "*.zip"]
 
@@ -74,4 +74,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

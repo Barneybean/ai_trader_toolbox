@@ -14,7 +14,7 @@ It produces three views per name:
   1. price+volume  — candlesticks, SMA 20/50/200, Bollinger band, the
                      support/resistance ladder as shaded zones, and the current
                      price line (the "where does it trade against structure" view).
-  2. chips         — the chip / cost-basis distribution as a horizontal
+  2. chips         — the chip / cost-basis distribution (筹码分布) as a horizontal
                      histogram: profit vs. trapped split, main cost-basis shelf,
                      high-volume nodes (the institutional-footprint view).
   3. gauges        — a compact signal dashboard: RSI, Stochastic, ADX, relative
@@ -40,28 +40,31 @@ import os
 import sys
 
 import indicators as ind
+import flow_anomaly as fa
+import forecast as fc
 
 
 # --------------------------------------------------------------------------- #
 # Palette — a dark "terminal" theme that reads on both GitHub light & dark.
 # --------------------------------------------------------------------------- #
 
-BG      = "#0d1117"   # GitHub dark canvas
-PANEL   = "#11161d"
-GRID    = "#222b36"
-AXIS    = "#30363d"
-TEXT    = "#c9d1d9"
-MUTED   = "#8b949e"
-UP      = "#26a69a"   # green candle / accumulation
-DOWN    = "#ef5350"   # red candle / distribution
-SMA20   = "#f0b90b"   # amber
-SMA50   = "#58a6ff"   # blue
-SMA200  = "#bc8cff"   # purple
-BOLL    = "#8b949e"   # bollinger band edge
-PRICE   = "#e6edf3"   # current-price line
-SUPPORT = "#26a69a"
-RESIST  = "#ef5350"
-COST    = "#f0b90b"   # main cost basis
+# Editorial light palette — matches the parchment desk report (build_report.py).
+BG      = "#ffffff"   # chart canvas (sits inside a white figure card)
+PANEL   = "#faf6ec"   # sub-panel (parchment tint)
+GRID    = "#e7ddc8"
+AXIS    = "#cdbf9f"
+TEXT    = "#1c2a37"   # ink navy
+MUTED   = "#6c7682"
+UP      = "#3c7365"   # pine teal — up candle / accumulation
+DOWN    = "#b04e2d"   # terracotta — down candle / distribution
+SMA20   = "#a2792c"   # brass gold
+SMA50   = "#40566b"   # steel navy
+SMA200  = "#9a6a4f"   # muted brown
+BOLL    = "#b8ab8c"   # bollinger band edge
+PRICE   = "#1c2a37"   # current-price line (ink)
+SUPPORT = "#3c7365"
+RESIST  = "#b04e2d"
+COST    = "#a2792c"   # main cost basis (gold)
 FONT    = "font-family='ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif'"
 MONO    = "font-family='ui-monospace,SFMono-Regular,Menlo,monospace'"
 
@@ -300,7 +303,90 @@ def render_price_volume(symbol, o, h, l, c, v, dates, indi, price, lookback=180)
 
 
 # --------------------------------------------------------------------------- #
-# 2) Chip / cost-basis distribution
+# 1b) Forecast fan — history + Monte-Carlo projection cone
+# --------------------------------------------------------------------------- #
+
+def render_forecast(symbol, hist_closes, cone, price, meta=None):
+    """Draw recent price history, then the forecast: the median projected path plus
+    a shaded 10–90% (and 25–75%) Monte-Carlo cone, with breakout/breakdown/target
+    lines. `cone` is a per-step list of {p10,p25,median,p75,p90} from forecast.cone()."""
+    meta = meta or {}
+    W, H = 940, 420
+    ml, mr, mt, mb = 54, 128, 46, 34
+    x0, x1 = ml, W - mr
+    y0, y1 = mt, H - mb
+    hist = list(hist_closes)[-45:] or [price]
+    Hn = len(hist)
+    horizon = len(cone) - 1 if cone else 0
+    total = Hn - 1 + horizon                       # x-index span
+    # y-domain across the visible window
+    ys = list(hist) + [c["p10"] for c in cone] + [c["p90"] for c in cone]
+    up, dn = meta.get("breakout"), meta.get("breakdown")
+    tgts = meta.get("targets") or []
+    for extra in [up, dn, price] + list(tgts):
+        if extra:
+            ys.append(extra)
+    lo, hi = min(ys), max(ys)
+    pad = (hi - lo) * 0.08 or 1
+    lo, hi = lo - pad, hi + pad
+    fx = _scaler(0, max(total, 1), x0, x1)
+    fy = _scaler(lo, hi, y1, y0)
+    parts = [_rect(0, 0, W, H, BG, rx=8)]
+    # panel + gridlines
+    parts.append(_rect(x0, y0, x1 - x0, y1 - y0, PANEL, rx=6))
+    for t in _nice_ticks(lo, hi, 5):
+        yy = fy(t)
+        parts.append(_line(x0, yy, x1, yy, GRID, 1))
+        parts.append(_text(x0 - 8, yy + 3, _n(t), MUTED, 10, "end", mono=True))
+    # split marker at "now"
+    xnow = fx(Hn - 1)
+    parts.append(_line(xnow, y0, xnow, y1, AXIS, 1, dash="3 3"))
+    parts.append(_text(xnow + 4, y0 + 12, "now", MUTED, 10, "start"))
+    parts.append(_text(x1, y0 + 12, f"+{horizon}d forecast →", MUTED, 10, "end"))
+    # cone polygons (p10–p90 light, p25–p75 darker)
+    def _band(loKey, hiKey, opacity):
+        upper = [(fx(Hn - 1 + j), fy(cone[j][hiKey])) for j in range(horizon + 1)]
+        lower = [(fx(Hn - 1 + j), fy(cone[j][loKey])) for j in range(horizon + 1)]
+        pts = " ".join(f"{_n(x)},{_n(y)}" for x, y in upper + lower[::-1])
+        return f"<polygon points='{pts}' fill='{SUPPORT}' fill-opacity='{opacity}'/>"
+    if cone:
+        parts.append(_band("p10", "p90", 0.13))
+        parts.append(_band("p25", "p75", 0.20))
+        # median projected path (dashed ink)
+        med = [(fx(Hn - 1 + j), fy(cone[j]["median"])) for j in range(horizon + 1)]
+        medpts = " ".join(f"{_n(x)},{_n(y)}" for x, y in med)
+        parts.append(f"<polyline points='{medpts}' fill='none' stroke='{PRICE}' "
+                     f"stroke-width='2' stroke-dasharray='5 3'/>")
+    # historical price line
+    histpts = [(fx(i), fy(hist[i])) for i in range(Hn)]
+    parts.append(_polyline(histpts, PRICE, 2))
+    # trigger / target / current-price levels
+    def _hline(val, color, label, dash="6 4"):
+        if not val:
+            return
+        yy = fy(val)
+        parts.append(_line(x0, yy, x1, yy, color, 1.2, dash=dash))
+        parts.append(_text(x1 + 6, yy + 3, label, color, 9.5, "start", mono=True))
+    _hline(price, COST, f"now {_n(price)}", dash="2 3")
+    _hline(up, SUPPORT, f"▲ {_n(up)}") if up else None
+    _hline(dn, RESIST, f"▼ {_n(dn)}") if dn else None
+    for i, tg in enumerate(tgts):
+        _hline(tg, SMA50, f"T{i+1} {_n(tg)}", dash="1 4")
+    # terminal cone labels at right edge
+    if cone:
+        term = cone[-1]
+        for key, col, lab in (("p90", SUPPORT, "p90"), ("median", PRICE, "med"), ("p10", RESIST, "p10")):
+            yy = fy(term[key])
+            parts.append(_text(x1 + 6, yy + 3, f"{lab} {_n(term[key])}", col, 9.5, "start", mono=True))
+    # title + subcaption
+    parts.append(_text(ml, 22, f"{symbol} — price forecast", TEXT, 14, weight="700"))
+    sub = meta.get("subtitle") or f"Monte-Carlo · {horizon}d · median + 10–90% cone"
+    parts.append(_text(ml, 37, sub, MUTED, 10))
+    return _svg(W, H, "".join(parts), f"{symbol} price forecast")
+
+
+# --------------------------------------------------------------------------- #
+# 2) Chip / cost-basis distribution (筹码分布)
 # --------------------------------------------------------------------------- #
 
 def render_chips(symbol, centers, chips, width, price, chip_summary):
@@ -343,7 +429,7 @@ def render_chips(symbol, centers, chips, width, price, chip_summary):
     cs = chip_summary or {}
     rail = W - mr + 4
     ry = mt + 14
-    parts.append(_text(rail, ry, "cost basis", TEXT, 10, weight="700"))
+    parts.append(_text(rail, ry, "筹码 / cost basis", TEXT, 10, weight="700"))
     ry += 16
     mcb = cs.get("main_cost_basis") or {}
     if mcb:
@@ -458,6 +544,160 @@ def render_gauges(symbol, indi):
 
 
 # --------------------------------------------------------------------------- #
+# 4) Decision scorecard — the "make the call at a glance" strip
+# --------------------------------------------------------------------------- #
+
+_ACTION_COL = {
+    "BUY": UP, "ACCUMULATE": UP, "ADD": UP, "STARTER": UP, "LONG": UP, "OVERWEIGHT": UP,
+    "TRIM": DOWN, "SELL": DOWN, "AVOID": DOWN, "REDUCE": DOWN, "SHORT": DOWN, "UNDERWEIGHT": DOWN,
+    "WATCH": SMA20, "HOLD": SMA20, "MONITOR": SMA20, "NEUTRAL": MUTED,
+}
+_CONVICTION = {"low": 1, "med": 2, "medium": 2, "high": 3}
+_VERDICT_COL = {
+    "COILED_BULLISH": UP, "EXPANSION_UP": UP, "PRESSURE_BUILDING_UP": UP,
+    "COILED_BEARISH": DOWN, "EXPANSION_DOWN": DOWN, "PRESSURE_BUILDING_DOWN": DOWN,
+    "COILED_UNDIRECTED": SMA20, "NEUTRAL": MUTED,
+}
+
+
+def _dots(x0, y0, filled, total=3, r=4.5, gap=15, col=TEXT):
+    parts = []
+    for k in range(total):
+        parts.append(f"<circle cx='{_n(x0 + k * gap)}' cy='{_n(y0)}' r='{r}' "
+                     f"fill='{col if k < filled else AXIS}'/>")
+    return "".join(parts)
+
+
+def _fillbar(x0, y0, w, label, value, vmax=100, col=SMA50, fmt="{:.0f}", vmin=0):
+    """A left-anchored fill meter (score, coil energy…)."""
+    parts = [_text(x0, y0 - 6, label, MUTED, 10)]
+    ty = y0 + 2
+    parts.append(_rect(x0, ty, w, 8, GRID, opacity=0.6, rx=2))
+    if value is not None:
+        frac = max(0.0, min(1.0, (value - vmin) / (vmax - vmin) if vmax != vmin else 0))
+        parts.append(_rect(x0, ty, frac * w, 8, col, rx=2))
+        parts.append(_text(x0 + w + 7, ty + 8, fmt.format(value), TEXT, 10, mono=True, weight="700"))
+    else:
+        parts.append(_text(x0 + w + 7, ty + 8, "n/a", MUTED, 10, mono=True))
+    return "".join(parts)
+
+
+def _diverging(x0, y0, w, label, value, lo=-100, hi=100, fmt="{:+.0f}"):
+    """A center-zero meter: red (distribution) left, green (accumulation) right."""
+    parts = [_text(x0, y0 - 6, label, MUTED, 10)]
+    ty = y0 + 2
+    sc = _scaler(lo, hi, x0, x0 + w)
+    mid = sc(0)
+    parts.append(_rect(x0, ty, mid - x0, 8, DOWN, opacity=0.28, rx=2))
+    parts.append(_rect(mid, ty, x0 + w - mid, 8, UP, opacity=0.28, rx=2))
+    parts.append(_line(mid, ty - 3, mid, ty + 11, MUTED, 1))
+    if value is not None:
+        vx = sc(max(lo, min(hi, value)))
+        col = UP if value >= 0 else DOWN
+        parts.append(_rect(vx - 2, ty - 3, 4, 14, col, rx=1))
+        parts.append(_text(x0 + w + 7, ty + 8, fmt.format(value), col, 10, mono=True, weight="700"))
+    else:
+        parts.append(_text(x0 + w + 7, ty + 8, "n/a", MUTED, 10, mono=True))
+    return "".join(parts)
+
+
+def render_scorecard(symbol, indi, flow=None, meta=None):
+    """Full-width decision strip: the call (action/conviction/score) · the trade
+    plan (entry/stop/target + reward:risk) · the money-flow read (flow pressure,
+    coil energy, verdict). The one visual that answers 'what do I do and why.'"""
+    meta = meta or {}
+    flow = flow or {}
+    W, H = 940, 220
+    P = [_line(316, 22, 316, H - 16, AXIS, 1), _line(620, 22, 620, H - 16, AXIS, 1)]
+
+    # ---- Panel A: THE CALL ------------------------------------------------- #
+    price = indi.get("price")
+    P.append(_text(20, 34, symbol, TEXT, 16, weight="700"))
+    if price is not None:
+        P.append(_text(96, 34, f"{price:.2f}", MUTED, 12, mono=True))
+    action = (meta.get("action") or "").upper()
+    acol = _ACTION_COL.get(action, MUTED)
+    P.append(_text(20, 86, action or "—", acol, 30, weight="800"))
+    sub = " · ".join(x for x in [(meta.get("sleeve") or "").title(),
+                                 meta.get("horizon") or ""] if x)
+    if sub:
+        P.append(_text(20, 106, sub, MUTED, 10.5))
+    conv = _CONVICTION.get(str(meta.get("conviction", "")).lower())
+    P.append(_text(20, 140, "Conviction", MUTED, 10))
+    P.append(_dots(112, 136, conv or 0, col=acol if conv else AXIS))
+    score = meta.get("score")
+    scol = UP if (score or 0) >= 70 else SMA20 if (score or 0) >= 50 else MUTED
+    P.append(_fillbar(20, 176, 180, "Score", score, vmax=100, col=scol, fmt="{:.0f}/100"))
+
+    # ---- Panel B: THE TRADE PLAN ------------------------------------------ #
+    bx = 336
+    P.append(_text(bx, 34, "TRADE PLAN", MUTED, 10, weight="700"))
+    plan = indi.get("trade_scaffold") or {}
+    entry = meta.get("entry", price)
+    stop = meta.get("stop", plan.get("reference_stop"))
+    target = meta.get("target", plan.get("primary_target"))
+
+    def _row(y, k, val, col, pct_base=None):
+        P.append(_text(bx, y, k, MUTED, 11))
+        if val is None:
+            P.append(_text(bx + 250, y, "—", MUTED, 11, "end", mono=True)); return
+        s = f"{val:.2f}"
+        if pct_base:
+            s += f"   ({(val - pct_base) / pct_base * 100:+.1f}%)"
+        P.append(_text(bx + 250, y, s, col, 11, "end", mono=True, weight="700"))
+    _row(60, "Entry", entry, TEXT)
+    _row(80, "Stop", stop, DOWN, entry)
+    _row(100, "Target", target, UP, entry)
+
+    # reward:risk proportion bar
+    if entry and stop and target and entry > stop:
+        risk = entry - stop
+        reward = target - entry
+        rr = reward / risk if risk > 0 else None
+        ty, tw = 132, 250
+        total = risk + max(reward, 0) or 1
+        rw = risk / total * tw
+        P.append(_rect(bx, ty, rw, 12, DOWN, opacity=0.85, rx=2))
+        P.append(_rect(bx + rw, ty, tw - rw, 12, UP, opacity=0.85, rx=2))
+        P.append(_text(bx, ty + 34, "risk", DOWN, 9.5))
+        P.append(_text(bx + tw, ty + 34, "reward", UP, 9.5, "end"))
+        if rr:
+            rrcol = UP if rr >= 2 else SMA20 if rr >= 1 else DOWN
+            P.append(_text(bx + tw / 2, ty + 34, f"R:R  {rr:.1f} : 1", rrcol, 12,
+                           "middle", weight="700", mono=True))
+    else:
+        P.append(_text(bx, 150, "reward:risk n/a", MUTED, 10))
+
+    # ---- Panel C: THE MONEY-FLOW READ ------------------------------------- #
+    cx = 640
+    P.append(_text(cx, 34, "MONEY FLOW", MUTED, 10, weight="700"))
+    verdict = flow.get("verdict")
+    if verdict:
+        vcol = _VERDICT_COL.get(verdict, MUTED)
+        P.append(_rect(cx, 44, 284, 26, PANEL, rx=5, stroke=vcol, sw=1.3))
+        P.append(_text(cx + 142, 61, verdict.replace("_", " "), vcol, 12,
+                       "middle", weight="700", mono=True))
+        conf = flow.get("confidence")
+        if conf:
+            P.append(_text(cx, 88, f"confidence: {conf}"
+                           + (f" ({flow.get('signals_agree')})" if flow.get("signals_agree") else ""),
+                           MUTED, 9.5))
+    else:
+        P.append(_text(cx, 60, "no flow data", MUTED, 10))
+    P.append(_diverging(cx, 122, 236, "Flow pressure  (distribution ↔ accumulation)",
+                        flow.get("flow_pressure")))
+    P.append(_fillbar(cx, 168, 236, "Coil energy  (loaded for a big move)",
+                      flow.get("coil_energy"), vmax=100, col=SMA20))
+    trig = flow.get("triggers") or {}
+    if trig.get("breakout_above") is not None:
+        P.append(_text(cx, 206, f"trigger  ▲ {trig['breakout_above']}   ▼ {trig.get('breakdown_below')}",
+                       MUTED, 9.5, mono=True))
+
+    P.append(_text(W - 14, 18, "decision scorecard", MUTED, 9.5, "end"))
+    return _svg(W, H, "".join(P), f"{symbol} decision scorecard")
+
+
+# --------------------------------------------------------------------------- #
 # Inline unicode sparkline (for watchlist one-liners)
 # --------------------------------------------------------------------------- #
 
@@ -480,9 +720,12 @@ def sparkline(values, n=32):
 # --------------------------------------------------------------------------- #
 
 def write_charts(bars, symbol, out_dir, price_override=None, float_shares=None,
-                 date=None, which=("price", "chips", "gauges")):
+                 date=None, which=("scorecard", "price", "forecast", "chips", "gauges"),
+                 meta=None, options=None):
     """Compute indicators + chip bins from `bars` and write the requested SVGs.
-    Returns {kind: path} plus a 'markdown' embed snippet."""
+    Returns {kind: path} plus a 'markdown' embed snippet. `meta` (action,
+    conviction, score, sleeve, entry, stop, target, horizon) enriches the
+    scorecard; `options` is an optional options-flow snapshot for the money-flow read."""
     o, h, l, c, v = ind._ohlcv(bars)
     if len(c) < 15:
         return {"error": f"need >=15 bars, got {len(c)}"}
@@ -497,6 +740,15 @@ def write_charts(bars, symbol, out_dir, price_override=None, float_shares=None,
     tag = symbol.upper()
     suffix = f"-{date}" if date else ""
     written = {}
+
+    if "scorecard" in which:
+        flow = fa.build(bars, price_override=price_override, float_shares=float_shares,
+                        options=options)
+        svg = render_scorecard(tag, indi, flow=(None if "error" in flow else flow), meta=meta)
+        p = os.path.join(out_dir, f"{tag}{suffix}-scorecard.svg")
+        with open(p, "w") as f:
+            f.write(svg)
+        written["scorecard"] = p
 
     if "price" in which:
         svg = render_price_volume(tag, o, h, l, c, v, dates, indi, price)
@@ -523,12 +775,35 @@ def write_charts(bars, symbol, out_dir, price_override=None, float_shares=None,
             f.write(svg)
         written["gauges"] = p
 
+    if "forecast" in which:
+        m = meta or {}
+        sr = indi.get("support_resistance") or {}
+        nr = (sr.get("nearest_resistance") or {}).get("level")
+        ns = (sr.get("nearest_support") or {}).get("level")
+        up = m.get("breakout") or nr
+        dn = m.get("breakdown") or (round(ns * 0.985, 2) if ns else None)
+        tgts = m.get("targets")
+        if not tgts and m.get("target"):
+            tgts = [m["target"]]
+        cone = fc.cone(c, price, horizon=m.get("horizon_days", 20),
+                       sims=m.get("sims", 20000), drift_annual=m.get("drift", 0.0))
+        svg = render_forecast(tag, c, cone, price, meta=dict(
+            breakout=up, breakdown=dn, targets=tgts or [], subtitle=m.get("fc_subtitle")))
+        p = os.path.join(out_dir, f"{tag}{suffix}-forecast.svg")
+        with open(p, "w") as f:
+            f.write(svg)
+        written["forecast"] = p
+
     # markdown embed snippet using paths relative to the reports/ dir
     def _rel(p):
         return os.path.relpath(p, os.path.dirname(os.path.dirname(p)))
     md = []
+    if "scorecard" in written:
+        md.append(f"![{tag} decision scorecard]({_rel(written['scorecard'])})")
     if "price" in written:
         md.append(f"![{tag} price/volume]({_rel(written['price'])})")
+    if "forecast" in written:
+        md.append(f"![{tag} price forecast]({_rel(written['forecast'])})")
     if "chips" in written or "gauges" in written:
         row = []
         if "chips" in written:
@@ -551,7 +826,18 @@ def main():
     p.add_argument("--out", default=".", help="output directory for the .svg files")
     p.add_argument("--date", default=None, help="date tag for filenames (YYYY-MM-DD)")
     p.add_argument("--only", default=None,
-                   help="comma list subset of: price,chips,gauges")
+                   help="comma list subset of: scorecard,price,forecast,chips,gauges")
+    p.add_argument("--options", default=None,
+                   help="options snapshot JSON file for the scorecard's money-flow read")
+    # scorecard meta (all optional — the scorecard still renders flow/coil/RR without them)
+    p.add_argument("--action", default=None, help="BUY/ACCUMULATE/TRIM/AVOID/WATCH…")
+    p.add_argument("--conviction", default=None, help="low/med/high")
+    p.add_argument("--score", type=float, default=None, help="0–100 review score")
+    p.add_argument("--sleeve", default=None, help="tactical/core")
+    p.add_argument("--entry", type=float, default=None)
+    p.add_argument("--stop", type=float, default=None)
+    p.add_argument("--target", type=float, default=None)
+    p.add_argument("--horizon", default=None, help="e.g. 6mo")
     args = p.parse_args()
 
     raw = sys.stdin.read() if args.source == "-" else open(args.source).read()
@@ -560,12 +846,17 @@ def main():
         print(json.dumps({"error": "could not locate price bars in input"}))
         sys.exit(1)
     which = tuple(x.strip() for x in args.only.split(",")) if args.only else \
-        ("price", "chips", "gauges")
+        ("scorecard", "price", "forecast", "chips", "gauges")
+    options = json.loads(open(args.options).read()) if args.options else None
+    meta = {k: getattr(args, k) for k in
+            ("action", "conviction", "score", "sleeve", "entry", "stop", "target", "horizon")
+            if getattr(args, k) is not None}
     out = write_charts(bars, args.symbol, args.out, price_override=args.price,
-                       float_shares=args.float_shares, date=args.date, which=which)
+                       float_shares=args.float_shares, date=args.date, which=which,
+                       meta=meta, options=options)
     if "error" in out:
         print(json.dumps(out)); sys.exit(1)
-    for k in ("price", "chips", "gauges"):
+    for k in ("scorecard", "price", "forecast", "chips", "gauges"):
         if k in out:
             print(out[k])
     print("\n--- markdown embed ---")
@@ -574,4 +865,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -454,7 +454,7 @@ def fibonacci(highs, lows, lookback=120):
 
 
 def chip_bins(highs, lows, closes, volumes, float_shares=None, bins=48, half_life=55):
-    """Compute the raw chip / cost-basis histogram — shared by the summary
+    """Compute the raw chip / cost-basis histogram (筹码分布) — shared by the summary
     (`chip_distribution`) and the chart renderer so both read the *same* bins.
 
     Walk the bars oldest→newest; each day distribute that bar's volume uniformly
@@ -501,7 +501,7 @@ def chip_bins(highs, lows, closes, volumes, float_shares=None, bins=48, half_lif
 
 def chip_distribution(highs, lows, closes, volumes, price, float_shares=None,
                       bins=48, half_life=55):
-    """Chip / cost-basis distribution — where current holders actually
+    """Chip / cost-basis distribution (筹码分布) — where current holders actually
     bought, approximated from volume-at-price.
 
     This is the institutional-positioning read the mentor method leans on: it maps
@@ -731,4 +731,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
