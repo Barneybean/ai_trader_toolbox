@@ -252,28 +252,54 @@ long-run calls; and the discipline — what to buy, what to *wait* for, and wher
 
 ## ⚡ Quickstart
 
-> 🤖 **Easiest path: hand this README to your AI agent.** Share this file (and
-> [`SKILL.md`](SKILL.md)) with your CLI agent — Claude Code or Codex — and say *"read this and set
-> it up, then run a desk run for me."* The toolkit is designed to be operated by an agent reading
-> these docs: it can install the PII gate, wire your config, connect the broker, and run the desk
-> end to end. The steps below are the same thing done by hand.
+Four steps, start to finish — no prior coding-agent experience required.
+
+### 1. Install a text editor
+
+You'll use this to open the repo and glance at config files. **VS Code** is a solid free default:
+➡️ **[code.visualstudio.com/download](https://code.visualstudio.com/download)**
+
+### 2. Install a CLI coding agent (Claude Code or Codex)
+
+The desk is *operated* by a CLI coding agent — it reads the skill files and runs the pipeline. You
+need a **Claude Pro/Max** (for Claude Code) or equivalent **Codex/ChatGPT** subscription.
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+That installs **Claude Code**. If you'd rather use **Codex**, follow OpenAI's CLI install
+instructions instead — either works, since the repo ships both [`SKILL.md`](SKILL.md) (Claude
+Code) and [`AGENTS.md`](AGENTS.md) (Codex / any AGENTS.md agent).
+
+> 💡 **Use the CLI, not a desktop app.** Desktop apps run in a restricted sandbox that often blocks
+> broker connectors, scripts, and order placement. The CLI can run the engines, hold the broker
+> connection, and place confirmed orders end to end.
+
+### 3. Connect your Robinhood agentic-trading account
+
+Do this from the CLI agent you just installed, not a browser-only flow — follow Robinhood's setup
+guide:
+➡️ **[robinhood.com/us/en/agentic-trading](https://robinhood.com/us/en/agentic-trading/)**
+
+This is what lets the agent pull your quotes, historicals, fundamentals, positions, and buying
+power, and place orders (with your confirmation) later on.
+
+### 4. Open the CLI and ask the agent to set up the toolbox
 
 ```bash
 git clone <your-fork-url> ai-trader && cd ai-trader
-cp config.example.toml config.local.toml   # add your broker/account (git-ignored)
-cp .env.example .env                       # only if you use an API-key feature
-bash scripts/install_hooks.sh              # install the PII gate (recommended)
+claude   # or: codex
 ```
 
-Then point your agent at the skill and ask for a run:
+Then, in the CLI, just ask:
 
-- **Claude Code** — the repo's [`SKILL.md`](SKILL.md) *is* the skill.
-- **Codex / any AGENTS.md agent** — [`AGENTS.md`](AGENTS.md) routes it in.
-- See [`PORTABILITY.md`](PORTABILITY.md) to wire every runtime to one source folder.
+> *"Read this repo's README.md and SKILL.md, set yourself up, and run a desk run for me."*
 
-> 💡 **Use a CLI agent (Claude Code or Codex), not a desktop app.** Desktop apps run in a
-> restricted sandbox that often blocks broker connectors, scripts, and order placement. The CLI
-> can run the engines, hold the broker connection, and place confirmed orders end to end.
+The agent takes it from there — it can create `config.local.toml` and `.env` from the `.example`
+files, install the PII gate, wire in the broker account from step 3, and run the desk end to end.
+If you'd rather do that setup by hand first, see [`SKILL.md`](SKILL.md) and
+[`PORTABILITY.md`](PORTABILITY.md).
 
 The desk pulls data, runs the pipeline, and returns a ranked, risk-checked report — or an honest
 "nothing clears the bar." No broker connector? It falls back to web data + a historicals JSON you
