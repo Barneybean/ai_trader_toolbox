@@ -4,6 +4,16 @@ Each role is a distinct perspective with its own mandate. With subagents, spin e
 
 **Shared mandate — variant perception.** Every analytical role serves one goal: find what the market hasn't priced (`skills/edge/variant-perception.md`), via deep primary-source collection, not a quote-screen glance. Each contributes to the variant-perception statement: consensus view → our view → why it isn't priced → catalyst that closes the gap. A finding that restates consensus has no edge — surface the non-obvious or say plainly there's none.
 
+**Roles are not optional on small questions.** Every *actionable* output — including an ad-hoc
+advisory answered outside a full desk run ("should I adjust X?") — carries a minimum role set:
+an **author** (research + quant), an **independent Bear/refuter** who attacks the load-bearing
+claims *before* the answer ships (not after the user pushes back), and a **reviewer** (Risk-Judge /
+CIO hat) who runs the sufficiency gate (`skills/decision/sufficiency-gate.md`) — verbatim: *"have
+you collected enough information and done enough quant analysis to come up with this
+recommendation?"* The reviewer is never the author. The gate's calibration case (a July 2026 MRVL
+trim call flipped to HOLD on verification) is the standing example of what skipping the Bear on a
+"quick" question costs.
+
 ---
 
 ## Desk Head (orchestrator)
