@@ -175,7 +175,7 @@ knowledge, never private positions; the PII gate enforces that boundary.
 ## 📄 Sample report
 
 See what a run produces:
-**[`reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html`](reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html)**
+**[`reports/examples/sample-report.html`](reports/examples/sample-report.html)**
 - a sanitized, self-contained bilingual HTML analysis of the desk output format.
 
 Open it in a browser, or view without cloning via a raw-HTML previewer (prepend
@@ -316,16 +316,17 @@ Any terminal agent that reads repository instructions and runs local commands ca
 #### Fewer permission prompts (optional)
 
 ```bash
-# Codex: no approval pauses, still confined to this workspace
-codex -a never
+# Codex: start normally, then enter /permissions and select Full Access
+codex
 
 # Claude: pre-approve routine file tools
 claude --permission-mode acceptEdits \
   --allowedTools "Read" "Edit" "Write" "Glob" "Grep"
 ```
 
-In Claude, use `/permissions` to approve other recurring tools. Avoid unrestricted permission
-bypass while a live broker is connected. Check current flags with `codex --help` or `claude --help`.
+In Codex, enter `/permissions` and select **Full Access**. In Claude, use `/permissions` to
+approve other recurring tools. Avoid unrestricted permission bypass while a live broker is
+connected. Check current flags with `codex --help` or `claude --help`.
 
 ### 3. Feed this README to the agent
 
@@ -373,6 +374,29 @@ supply (see *Portability & capability detection* in `SKILL.md`).
 
 After the manual flow is reliable, consider weekday pre-market and post-close runs plus a weekly
 review. Scheduled reports still require confirmation before execution.
+
+### Repository layout
+
+```text
+ai-trader-toolbox/
+├── skills/             # research, decision, playbook, and execution instructions
+├── scripts/
+│   ├── analysis/       # market and quantitative engines
+│   ├── journal/        # recall, alerts, scoring, and weekly review
+│   ├── lib/            # shared data and logging modules
+│   ├── ops/            # setup, privacy, consistency, smoke tests, and packaging
+│   └── report/         # report scaffolding, charts, build, and archive lifecycle
+├── chat-bot-bridge/    # optional provider-neutral phone connection template
+├── docs/               # manuals, policies, ADRs, and sanitized demonstrations
+├── journal/            # local user memory and outcomes; private files are git-ignored
+└── reports/            # current HTML, archived HTML, examples, and ignored build/cache state
+```
+
+The grouped paths are canonical. Legacy flat commands such as `scripts/indicators.py` remain as
+compatibility launchers, so existing integrations continue to work while new documentation uses
+`scripts/analysis/indicators.py`. Generated `dist/`, `logs/`, report caches/builds, local agent
+settings, credentials, sessions, and personal trading data are intentionally not mirrored from a
+developer's Trading Desk.
 
 ---
 
