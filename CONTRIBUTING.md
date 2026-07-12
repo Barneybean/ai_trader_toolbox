@@ -92,12 +92,45 @@ python3 scripts/indicators.py <historicals.json> --price <px>   # sanity-check t
 - Match the surrounding code: clear names, comments where intent isn't obvious, no dead code.
 - Reference files are Markdown: lead with purpose, then the actionable framework, then guardrails.
 - Keep the desk's discipline intact — additions should serve "edge or silence," not add noise.
+- **Condensed wording, always.** `SKILL.md` and `skills/` are loaded into agent context on
+  every desk run — every sentence you add costs tokens forever. Write dense: no
+  throat-clearing, no restating what a linked file already says, frameworks over essays.
+  `check_consistency.py` warns when a skill file passes ~2,600 words; treat the warning as
+  "condense," never "split into two files to dodge the budget."
+
+## Key decisions → ADRs
+
+Changes to the desk **method**, toolkit **architecture**, **data contracts**, or the
+**privacy posture** carry an Architecture Decision Record in the same PR — scaffold with
+`python3 scripts/new_adr.py "Title"` and see [`docs/adr/README.md`](docs/adr/README.md) for
+the when/how. Routine fixes and new reference content don't need one. When debugging a
+script, wrap it with `python3 scripts/desk_log.py run -- <cmd>` so the failure lands in the
+activity log (`desk_log.py tail --errors`).
+
+## Self-review before opening a PR
+
+Review your own change the way the desk reviews a trade — *before* anyone else sees it:
+
+1. **Run the gates** (the pre-push hook and CI re-run both; passing locally first is the point):
+
+   ```bash
+   python3 scripts/check_consistency.py   # conflicts: broken refs, unregistered playbooks, ADR integrity, word budgets
+   python3 scripts/scan_pii.py            # privacy: no personal/account data
+   ```
+
+2. **Condensed-wording pass** — reread your diff and cut: intros, hedges, restated context,
+   anything a linked file already says. Target: every surviving sentence changes what an
+   agent or reader would do.
+3. **Conflict pass** — the gate catches mechanical conflicts; the semantic ones are on you.
+   Check your addition against `docs/adr/` (don't contradict an accepted ADR — write a
+   superseding one), the coverage maps (don't duplicate an existing or claimed playbook),
+   and the skills it sits next to (don't add a second, competing way to do the same thing).
 
 ## Pull requests
 
 1. Branch off `opensource`.
 2. Keep PRs focused; describe the *why*.
-3. Ensure `python3 scripts/scan_pii.py` passes and no personal data is included.
+3. Complete the self-review above — gates green, wording condensed, no conflicts.
 4. For a new broker/sector, follow the existing interface/template so it composes.
 
 ## Adding a broker (interface sketch)

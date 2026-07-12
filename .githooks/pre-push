@@ -11,6 +11,11 @@ case "$branch" in
       echo "   (Bypass is intentionally awkward: git push --no-verify — only if you are certain.)"
       exit 1
     fi
+    echo "🔎 check_consistency: broken refs, unregistered playbooks, ADR integrity, word budgets…"
+    if ! python3 scripts/check_consistency.py; then
+      echo "✋ push blocked — the change conflicts with the toolkit (see CONTRIBUTING.md self-review)."
+      exit 1
+    fi
     ;;
   *) echo "scan_pii: '$branch' is a private branch — PII gate not enforced." ;;
 esac

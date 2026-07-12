@@ -314,6 +314,10 @@ python3 scripts/indicators.py path/to/historicals.json --price 128.40 --float 41
 # The learning journal:
 python3 scripts/track_record.py recall --symbol NVDA
 python3 scripts/track_record.py report            # win rate + avg alpha + recent lessons
+
+# Toolkit activity log (debugging + reliability — see docs/adr/):
+python3 scripts/desk_log.py run -- python3 scripts/indicators.py path/to/historicals.json
+python3 scripts/desk_log.py stats                 # per-script runs, error rate, p50/p95 ms
 ```
 
 Pure Python standard library — no dependencies, runs anywhere `python3` does.

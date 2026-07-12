@@ -1,0 +1,40 @@
+# Architecture Decision Records (ADRs)
+
+Key decisions about **how this desk works** — method, pipeline, toolkit architecture, data
+contracts, privacy posture, runtime/broker support — get recorded here as short, numbered,
+immutable documents. The reports capture what the desk *concluded*; ADRs capture why the
+machine is *built the way it is*, so an iteration six months from now doesn't re-litigate
+(or silently undo) a decision whose rationale lived only in a chat session.
+
+## When to write one
+
+Write an ADR when a change:
+
+- alters the **desk method** (a new gate, a changed funnel step, a scoring change),
+- changes **toolkit architecture** or a **data contract** (storage formats, journal schemas,
+  what a script consumes/emits),
+- changes the **privacy posture** (what may be logged, committed, or published),
+- adds/drops a **runtime or broker** integration,
+- rejects a significant alternative someone is likely to propose again.
+
+Routine bug fixes, copy edits, and new reference content don't need one.
+
+## Process
+
+1. Scaffold: `python3 scripts/new_adr.py "Short decision title"` → creates the next
+   `NNNN-slug.md` from [`template.md`](template.md) with status **Proposed**.
+2. Fill in Context / Decision / Consequences / Alternatives. Keep it under a page.
+3. Land it in the same commit/PR as the change it explains. Flip status to **Accepted** when
+   the change ships.
+4. Never rewrite an accepted ADR's decision. To change course, write a new ADR and mark the
+   old one **Superseded by ADR-NNNN**. Numbers are never reused.
+5. This directory is public — the PII gate applies. No account data, no personal identifiers;
+   run `python3 scripts/scan_pii.py` before pushing, like everything else.
+
+`python3 scripts/new_adr.py --list` prints the index (number, status, title).
+
+## Index
+
+- [ADR-0001](0001-record-key-decisions-as-adrs.md) — Record key decisions as ADRs — Accepted
+- [ADR-0002](0002-toolkit-activity-log.md) — Toolkit activity log in `journal/toolkit.jsonl` — Accepted
+- [ADR-0003](0003-contribution-self-review-gate.md) — Contribution self-review: condensed wording + consistency gate — Accepted

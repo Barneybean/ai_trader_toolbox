@@ -1,0 +1,21 @@
+name: Consistency gate
+
+# Server-side twin of the pre-push consistency check: no contribution merges with broken
+# internal references, unregistered playbooks, ADR-integrity problems, or case-colliding
+# filenames. Word-budget and engine-registration findings are warnings for the reviewer.
+on:
+  push:
+    branches: [opensource, public, release]
+  pull_request:
+    branches: [opensource, public, release]
+
+jobs:
+  check-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Check the contribution doesn't conflict with the toolkit
+        run: python3 scripts/check_consistency.py

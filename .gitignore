@@ -238,6 +238,7 @@ journal/reflections.md
 journal/action-levels.jsonl
 journal/insights.jsonl
 journal/mentor-book.json
+journal/toolkit.jsonl
 reports/.build/
 reports/*.html
 !reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html
