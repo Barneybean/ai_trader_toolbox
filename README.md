@@ -14,13 +14,14 @@ and returns an auditable HTML report—not a black-box prediction.*
 ![Agent](https://img.shields.io/badge/agent-Claude%20Code%20%7C%20Codex-8A2BE2)
 ![Not financial advice](https://img.shields.io/badge/⚠️-not%20financial%20advice-red)
 
-💡 [Why It Exists](#-why-trading-desk) ·
+💡 [Why It Exists](#-why-ai-trader-toolbox) ·
 🎯 [What It Does](#-what-it-does) ·
 🏛️ [The Desk](#️-the-desk) ·
 🌍 [Knowledge Commons](#-the-knowledge-commons) ·
 📄 [Sample](#-sample-report) ·
 ✅ [Why Trust It](#-why-trust-the-process) ·
 ⚙️ [Setup](#️-setup) ·
+📖 [Use It](#-use-it) ·
 🧩 [Make It Yours](#-make-it-yours) ·
 🔌 [Brokers](#-broker-support) ·
 🔒 [Privacy Gate](#-privacy--the-pii-gate) ·
@@ -45,10 +46,10 @@ If you want the README to work like an onboarding guide, read it in this order:
 
 | What you need | Read here | Why it matters |
 |---|---|---|
-| Tool intro | [Why It Exists](#-why-trading-desk) and [What It Does](#-what-it-does) | Explains the desk, its discipline, and the main ways to use it. |
+| Tool intro | [Why It Exists](#-why-ai-trader-toolbox) and [What It Does](#-what-it-does) | Explains the desk, its discipline, and the main ways to use it. |
 | What it can do | [The Desk](#️-the-desk) and [Sample report](#-sample-report) | Shows the operating model and the output format. |
 | Setup | [Setup](#️-setup) and [Brokers](#-broker-support) | Gets the agent, broker, and local config in place. |
-| User manual | [What It Does](#-what-it-does) and [`docs/user-manual.md`](docs/user-manual.md) | Explains daily reports, approvals, and execution. |
+| User manual | [Use It](#-use-it) and [`docs/user-manual.md`](docs/user-manual.md) | Explains daily reports, approvals, and execution. |
 
 If you are new, start with the intro, complete setup, then use the manual when you are ready to run it.
 
@@ -103,20 +104,6 @@ Four ways to use it:
 - Log ideas, vetoes, plans, and outcomes.
 - Score mature calls by return and alpha versus SPY.
 - Recall lessons when similar setups return.
-
-Run the full workflow with:
-
-```text
-Run a daily report.
-```
-
-This always means the complete decision-grade pipeline and bilingual HTML report. The flow is:
-
-**Report generated → user reviews → user approves exact tickets → AI previews and executes only
-those tickets in the broker’s agentic account → fills are reported and logged.**
-
-For monitoring only, say `quick update`, `changes only`, or `status only`. Any actionable finding
-automatically receives the full analysis first.
 
 ---
 
@@ -188,7 +175,7 @@ knowledge, never private positions; the PII gate enforces that boundary.
 ## 📄 Sample report
 
 See what a run produces:
-**[`reports/examples/sample-report.html`](reports/examples/sample-report.html)**
+**[`reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html`](reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html)**
 - a sanitized, self-contained bilingual HTML analysis of the desk output format.
 
 Open it in a browser, or view without cloning via a raw-HTML previewer (prepend
@@ -345,15 +332,65 @@ supply (see *Portability & capability detection* in `SKILL.md`).
 
 - [ ] A terminal coding agent can read `README.md`, `AGENTS.md`, and `SKILL.md` and run Python.
 - [ ] `config.local.toml` and any `.env` values exist only locally and remain git-ignored.
-- [ ] Privacy hooks are installed and `python3 scripts/ops/scan_pii.py` passes.
+- [ ] Privacy hooks are installed and `python3 scripts/scan_pii.py` passes.
 - [ ] A supported broker is connected for live portfolio data and confirmed execution, or the
       documented web/manual-data fallback is understood.
+- [ ] The optional phone bridge under `chat-bot-bridge/` is configured only with local secrets and
+      allowlists, or left uninstalled if you do not need phone access.
 - [ ] The first analysis-only report builds successfully and its sources and risk plan are reviewed.
 - [ ] Personal watchlists, house views, and paid/private knowledge live only in private overlays.
 - [ ] Calls are logged and later scored so confidence can be earned from outcomes.
 
 After the manual flow is reliable, consider weekday pre-market and post-close runs plus a weekly
 review. Scheduled reports still require confirmation before execution.
+
+---
+
+## 📖 Use It
+
+Ask your terminal agent in plain language:
+
+1. `Run a daily report.`
+2. `Run a complete report on AI robotics opportunities.`
+3. `Run a full analysis on META.`
+4. `Schedule a complete daily report before the market opens each trading day.`
+5. `Switch to full-auto mode for my Robinhood agentic account.`
+
+Reports and analyses always use the full decision-grade pipeline. The normal flow is **report →
+user review → approve exact tickets → AI previews and executes only those tickets → report and log
+fills.** Full-auto is an explicit opt-in for the agentic account only; it operates within the same
+risk and sufficiency gates, reports every order/fill, and can be stopped immediately with
+`/mode manual`.
+
+### From your phone
+
+After completing the optional [phone connection setup](docs/phone-connection.md), send the same
+plain-language requests you use in the terminal. Reports, analysis, follow-ups, approvals, and
+questions behave the same way.
+
+<p align="center">
+  <img src="docs/phone-demo/01-command-and-result.jpg" width="360" alt="Requesting an NKE report by phone, with receipt, progress, decision summary, and delivered HTML report">
+  &nbsp;
+  <img src="docs/phone-demo/02-report-on-phone.jpg" width="360" alt="Opening the bilingual NKE decision report on a phone">
+</p>
+
+<p align="center"><sub>Ask from your phone → follow live progress → receive the decision and HTML report → review it on the phone.</sub></p>
+
+| Command | What it does |
+|---|---|
+| `/status` | Show bridge health, active agent, trading mode, and session status. |
+| `/agent` | Show the current agent preference and fallback order. |
+| `/agent auto` | Use the configured priority and fall back when an agent is rate-limited or unavailable. |
+| `/agent codex` · `/agent claude` | Pin one agent and disable automatic fallback. |
+| `/new` | Clear the saved Codex and Claude conversations and start fresh sessions. |
+| `/mode` | Show the current trading mode. |
+| `/mode manual` | Require confirmation for each exact order—the execution kill switch. |
+| `/mode semi` | Propose numbered tickets; execute only the tickets you approve. |
+| `/mode full` | Explicitly allow playbook-gated execution in the agentic account; every order/fill is reported. |
+| `/help` | Show the available phone commands. |
+
+Everything else is normal conversation. For example: `Run a daily report`, `Analyze META`,
+`Approve 1`, `What changed?`, or `Send me the latest report`.
 
 ---
 
@@ -411,14 +448,14 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 The repo protects private data with three layers:
 
 - **Secrets live only in git-ignored files** — `config.local.toml`, `.env`, `skills/private/`.
-- **A scanner** — [`scripts/ops/scan_pii.py`](scripts/ops/scan_pii.py) — flags account numbers, keys,
+- **A scanner** — [`scripts/scan_pii.py`](scripts/scan_pii.py) — flags account numbers, keys,
   connector UUIDs, and personal identifiers in tracked files.
 - **Three gates** — pre-commit, pre-push, and
   [CI](.github/workflows/pii-scan.yml).
 
 ```bash
-bash scripts/ops/install_hooks.sh      # turn on the local gate
-python3 scripts/ops/scan_pii.py        # scan on demand before publishing
+bash scripts/install_hooks.sh      # turn on the local gate
+python3 scripts/scan_pii.py        # scan on demand before publishing
 ```
 
 Add your exact private strings to `scripts/ops/pii_denylist.local.txt` (git-ignored) for hard
@@ -458,8 +495,8 @@ Want to help? Open an issue with a source, test case, or design and read
 
 Issues and PRs are welcome. Pick a roadmap item or add a playbook through
 [The Knowledge Commons](#-the-knowledge-commons). State the problem, evidence, acceptance criteria,
-failure modes, and tests. Run `python3 scripts/ops/scan_pii.py` before pushing. Significant
-updates also trigger `python3 scripts/ops/smoke_test.py` from the git hooks, which asks for human
+failure modes, and tests. Run `python3 scripts/scan_pii.py` before pushing. Significant
+updates also trigger `python3 scripts/smoke_test.py` from the git hooks, which asks for human
 review before the push leaves the machine. Follow
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
