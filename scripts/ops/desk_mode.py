@@ -67,6 +67,9 @@ def main():
     as_json = "--json" in args
     args = [a for a in args if a != "--json"]
 
+    if args and args[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0
     if args and args[0] != "set":
         print(f"unknown command {args[0]!r} — usage: desk_mode.py [set full|semi|manual] [--json]",
               file=sys.stderr)

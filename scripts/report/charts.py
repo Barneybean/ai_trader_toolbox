@@ -163,13 +163,12 @@ def _nice_ticks(lo, hi, n=5):
     """A handful of round-ish price gridlines between lo and hi."""
     if hi <= lo:
         return [lo]
+    import math
     raw = (hi - lo) / n
-    mag = 10 ** (len(str(int(raw))) - 1) if raw >= 1 else 0.1 ** (
-        1 + len(str(int(1 / raw))) if raw > 0 else 1)
+    mag = 10 ** math.floor(math.log10(raw))   # correct for sub-1.0 spacing too
     for step in (mag, mag * 2, mag * 2.5, mag * 5, mag * 10):
         if (hi - lo) / step <= n + 1:
             break
-    import math
     start = math.ceil(lo / step) * step
     ticks, v = [], start
     while v <= hi + 1e-9:

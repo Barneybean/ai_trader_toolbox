@@ -69,6 +69,13 @@ def _inline(text, base_dir, charts_dir):
         safe = href if scheme in ("", "http", "https", "mailto") else "#"
         return (f"<a href='{html.escape(safe, quote=True)}' target='_blank' "
                 f"rel='noopener noreferrer'>{label}</a>")
+    def _img(m):
+        alt, src = m.groups()
+        scheme = urlsplit(html.unescape(src)).scheme.lower()
+        safe = src if scheme in ("", "http", "https") else "#"
+        return (f"<img src='{html.escape(safe, quote=True)}' "
+                f"alt='{html.escape(alt, quote=True)}' style='max-width:100%'>")
+    text = _IMG_RE.sub(_img, text)   # stray inline image on a mixed text line
     text = _LINK_RE.sub(_link, text)
 
     def _unstash(m):
@@ -383,10 +390,22 @@ def markdown_to_html(md, base_dir, charts_dir):
             ctype = (fm.group(1) or "").lower()
             ctitle = (fm.group(2) or "").strip()
             i += 1
-            inner = []
-            while i < len(lines) and lines[i].strip() != ":::":
+            inner, depth = [], 1
+            # depth-aware: '::: kpi' inside '::: details' must not steal the closer
+            while i < len(lines):
+                s = lines[i].strip()
+                if s == ":::":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                elif s.startswith(":::"):
+                    depth += 1
                 inner.append(lines[i]); i += 1
-            i += 1  # consume the closing :::
+            if depth:
+                print(f"warn: unclosed '::: {ctype or 'box'}' fence — everything to EOF "
+                      "rendered inside it", file=sys.stderr)
+            else:
+                i += 1  # consume the closing :::
             if ctype == "kpi":
                 out.append(_render_kpis(inner, base_dir, charts_dir))
             elif ctype == "compare":
@@ -445,7 +464,10 @@ def markdown_to_html(md, base_dir, charts_dir):
             header = _split_row(line)
             i += 2
             body = []
-            while i < len(lines) and "|" in lines[i] and lines[i].strip():
+            # a following callout/heading/fence that happens to contain '|' is
+            # NOT a table row — only plain pipe-lines belong to the body
+            while (i < len(lines) and "|" in lines[i] and lines[i].strip()
+                   and not lines[i].lstrip().startswith((">", "#", ":::"))):
                 body.append(_split_row(lines[i]))
                 i += 1
             th = "".join(f"<th>{_inline(c, base_dir, charts_dir)}</th>" for c in header)
