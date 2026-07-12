@@ -184,7 +184,7 @@ Open it in a browser, or view without cloning via a raw-HTML previewer (prepend
 It opens with the call — what to do, in one screen:
 
 <p align="center">
-  <img src="docs/sample-report/01-the-call.png" width="760" alt="Sample report — the call: verdict cards and the sized orders table">
+  <img src="docs/sample-report/01-the-call.png" width="680" alt="Sample report — the call: verdict cards and the sized orders table">
 </p>
 
 <details>
@@ -194,37 +194,37 @@ It opens with the call — what to do, in one screen:
 **Decision scorecards** — call, trade plan, and money flow.
 
 <p align="center">
-  <img src="docs/sample-report/02-scorecards.png" width="760" alt="Decision scorecards — ACCUMULATE / HOLD with trade plan and money-flow gauges">
+  <img src="docs/sample-report/02-scorecards.png" width="680" alt="Decision scorecards — ACCUMULATE / HOLD with trade plan and money-flow gauges">
 </p>
 
 **Layer map** — the theme split by certainty, purity, and elasticity.
 
 <p align="center">
-  <img src="docs/sample-report/03-layer-map.png" width="760" alt="Layer map — brain / body / components cards and the layer-ranked call">
+  <img src="docs/sample-report/03-layer-map.png" width="680" alt="Layer map — brain / body / components cards and the layer-ranked call">
 </p>
 
 **Institutional footprint** — cost basis and trapped supply.
 
 <p align="center">
-  <img src="docs/sample-report/04-chip-footprint.png" width="760" alt="Chip-distribution histogram with the Wyckoff phase read">
+  <img src="docs/sample-report/04-chip-footprint.png" width="680" alt="Chip-distribution histogram with the Wyckoff phase read">
 </p>
 
 **Levels and signals** — price, support, resistance, and indicators.
 
 <p align="center">
-  <img src="docs/sample-report/05-levels-signals.png" width="760" alt="Price chart with S/R ladder and signal dashboard">
+  <img src="docs/sample-report/05-levels-signals.png" width="680" alt="Price chart with S/R ladder and signal dashboard">
 </p>
 
 **Fundamentals and catalysts** — consensus, the desk view, and the plan.
 
 <p align="center">
-  <img src="docs/sample-report/06-fundamentals.png" width="760" alt="Fundamentals, catalyst, and the ACTION trade plan">
+  <img src="docs/sample-report/06-fundamentals.png" width="680" alt="Fundamentals, catalyst, and the ACTION trade plan">
 </p>
 
 **Forecast** — Monte Carlo range and historical base rate.
 
 <p align="center">
-  <img src="docs/sample-report/07-forecast.png" width="760" alt="Monte-Carlo price forecast cone with the verdict">
+  <img src="docs/sample-report/07-forecast.png" width="680" alt="Monte-Carlo price forecast cone with the verdict">
 </p>
 
 </details>
@@ -242,9 +242,9 @@ plain-language requests you use in the terminal. Reports, analysis, follow-ups, 
 questions behave the same way.
 
 <p align="center">
-  <img src="docs/phone-demo/01-command-and-result.jpg" width="360" alt="Requesting an NKE report by phone, with receipt, progress, decision summary, and delivered HTML report">
+  <img src="docs/phone-demo/01-command-and-result.jpg" width="240" alt="Requesting an NKE report by phone, with receipt, progress, decision summary, and delivered HTML report">
   &nbsp;
-  <img src="docs/phone-demo/02-report-on-phone.jpg" width="360" alt="Opening the bilingual NKE decision report on a phone">
+  <img src="docs/phone-demo/02-report-on-phone.jpg" width="240" alt="Opening the bilingual NKE decision report on a phone">
 </p>
 
 <p align="center"><sub>Ask from your phone → follow live progress → receive the decision and HTML report → review it on the phone.</sub></p>
@@ -459,7 +459,7 @@ confirmation). Follow Robinhood's official setup:
 orders only after user approval. The 🤖 marks agent-placed orders.
 
 <div align="center">
-<img src="docs/agentic-orders-robinhood.png" width="820" alt="Robinhood Activity feed showing AI-agent-placed limit buy orders: NVIDIA and MP Materials placed, Cameco, Nike and SoFi queued — each row marked with the agent icon, all resting as limit orders while the account holds zero shares.">
+<img src="docs/agentic-orders-robinhood.png" width="720" alt="Robinhood Activity feed showing AI-agent-placed limit buy orders: NVIDIA and MP Materials placed, Cameco, Nike and SoFi queued — each row marked with the agent icon, all resting as limit orders while the account holds zero shares.">
 </div>
 
 The design goal is **one broker-adapter interface** — add a broker by implementing a single class.
