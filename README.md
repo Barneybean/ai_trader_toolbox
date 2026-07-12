@@ -317,7 +317,7 @@ Any terminal agent that reads repository instructions and runs local commands ca
 
 ```bash
 # Codex: no approval pauses, still confined to this workspace
-codex --ask-for-approval never --sandbox workspace-write
+codex -a never
 
 # Claude: pre-approve routine file tools
 claude --permission-mode acceptEdits \
