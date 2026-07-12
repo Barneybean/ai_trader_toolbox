@@ -1,9 +1,9 @@
-# tradingdesk — EXAMPLE configuration.
+# AI Trader Toolbox — example local configuration.
 # Copy this to `config.local.toml` and fill in your values.
 # config.local.toml is git-ignored and must NEVER be committed (it holds account #s / keys).
 
 [broker]
-# Which broker adapter to use: robinhood | ibkr | futu
+# Currently supported broker connector. Additional adapters remain roadmap work.
 active = "robinhood"
 
 [broker.robinhood]
@@ -13,28 +13,11 @@ account_number = "YOUR_ACCOUNT_NUMBER"
 # [broker.robinhood.watchlists]
 # "My List" = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
-[broker.ibkr]
-# TWS / IB Gateway connection (adapter is a stub for now — contributions welcome).
-host = "127.0.0.1"
-port = 7497
-client_id = 1
-account_id = "YOUR_IBKR_ACCOUNT"
-
-[broker.futu]
-# FutuOpenD gateway (adapter is a stub for now — contributions welcome).
-host = "127.0.0.1"
-port = 11111
-account_id = "YOUR_FUTU_ACCOUNT"
-
-[llm]
-# Only used by the OPTIONAL autonomous runner. The default agent-driven mode needs no key here —
-# your agent (Claude Code / Codex / etc.) supplies the reasoning.
-provider = "anthropic"        # anthropic | openai | ...
-model = "claude-opus-4-8"
-# Put the actual API key in the environment (.env), not in this file.
-
 [paths]
 journal = "journal"
 reports = "reports"
 private_refs = "skills/private"   # optional bring-your-own overlay (git-ignored)
 
+[policy]
+# ask | taxable | tax_advantaged | mixed — confirm with the user; never infer account tax status.
+tax_treatment = "ask"

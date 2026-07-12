@@ -70,7 +70,7 @@ The single most valuable demonstrated skill of great sector traders: trimming a 
 BEFORE it cracks and rotating into unloved defensives early — the trim block falls over the
 following weeks while the destinations rip. Two mechanisms, now desk doctrine:
 
-**1. Notice the crack early — run `python3 scripts/rotation_radar.py` (weekly + any macro step).**
+**1. Notice the crack early — run `python3 scripts/analysis/rotation_radar.py` (weekly + any macro step).**
 The tell is *relative and quiet*: a sector still up hugely over 3 months whose 21-day relative
 strength has flipped negative (label: COOLING) — the crowd still sees the 3-month chart; the
 tape is already leaving. Confirmations, per name inside the sector: reverse-DCF implied growth

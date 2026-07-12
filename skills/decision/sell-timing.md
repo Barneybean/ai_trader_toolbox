@@ -5,7 +5,7 @@ says they should — and then retrace faster than anyone plans for.** The error 
 symmetric: selling a runner early costs the melt-up; overstaying costs the round-trip.
 This skill times the exit on **extended / popular / momentum names** — a broken *thesis*
 exits on the thesis (`skills/edge/thematic-waves.md` contrast rule), not on this chart
-radar. Engine: `scripts/exit_radar.py`.
+radar. Engine: `scripts/analysis/exit_radar.py`.
 
 ## The core asymmetry
 

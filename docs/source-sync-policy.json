@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "policy_id": "ai-trader-toolbox-public-boundary",
+  "policy_version": "1.0.0",
+  "purpose": "Classify source-to-public differences without copying files or private state.",
+  "canonical_paths": [
+    {
+      "id": "messenger_bridge",
+      "path": "chat-bot-bridge",
+      "required": true,
+      "aliases": ["phone-bridge", "telegram-bridge", "discord-bridge"]
+    },
+    {"id": "analysis_engines", "path": "scripts/analysis", "required": true, "aliases": []},
+    {"id": "journal_tools", "path": "scripts/journal", "required": true, "aliases": []},
+    {"id": "shared_libraries", "path": "scripts/lib", "required": true, "aliases": []},
+    {"id": "operations", "path": "scripts/ops", "required": true, "aliases": []},
+    {"id": "report_tools", "path": "scripts/report", "required": true, "aliases": []},
+    {"id": "skills", "path": "skills", "required": true, "aliases": []}
+  ],
+  "classes": [
+    {
+      "name": "never_import",
+      "action": "Block from public history; keep only the reusable mechanism or a blank template.",
+      "patterns": [
+        ".git",
+        ".git/**",
+        ".claude",
+        ".claude/**",
+        "CLAUDE.md",
+        "config.local.toml",
+        "config.local.*.toml",
+        ".env",
+        ".env.example",
+        "**/.env",
+        "desk-mode.json",
+        "dist",
+        "dist/**",
+        "logs",
+        "logs/**",
+        "**/logs",
+        "**/logs/**",
+        "**/state.json",
+        "**/*.local.txt",
+        "**/__pycache__/**",
+        "journal/*.json",
+        "journal/*.jsonl",
+        "journal/reflections.md",
+        "journal/mentor-snapshots/**",
+        "reports/.build/**",
+        "reports/cache/**",
+        "reports/archive/**",
+        "reports/assets/**",
+        "reports/report_*.html"
+      ]
+    },
+    {
+      "name": "preserve_public",
+      "action": "Keep the public version; never replace it wholesale from another source.",
+      "patterns": [
+        "SECURITY.md",
+        "LICENSE",
+        ".github/**",
+        "docs/adr/**",
+        "reports/examples/**",
+        "reports/README.md",
+        "journal/README.md",
+        "scripts/*.py",
+        "scripts/*.sh"
+      ]
+    },
+    {
+      "name": "sanitize_required",
+      "action": "Port the behavior manually; replace identities, paths, policy defaults, accounts, schedules, models, and live status.",
+      "patterns": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "PORTABILITY.md",
+        "SKILL.md",
+        "config.example.toml",
+        ".gitignore",
+        ".githooks/**",
+        "chat-bot-bridge/**",
+        "docs/**",
+        "skills/playbook/**",
+        "skills/execution/**",
+        "skills/decision/trading-modes.md",
+        "scripts/ops/desk_mode.py"
+      ]
+    },
+    {
+      "name": "reusable_candidate",
+      "action": "Eligible for a content review and public-safe port; still run every gate before publishing.",
+      "patterns": [
+        "scripts/analysis/**",
+        "scripts/journal/**",
+        "scripts/lib/**",
+        "scripts/ops/**",
+        "scripts/report/**",
+        "skills/analysis/**",
+        "skills/decision/**",
+        "skills/edge/**",
+        "skills/README.md",
+        "scripts/README.md"
+      ]
+    }
+  ],
+  "default_class": "manual_review",
+  "required_paths": [
+    "README.md",
+    "AGENTS.md",
+    "SKILL.md",
+    "docs/open-source-boundary.md",
+    "chat-bot-bridge/.env.example",
+    "scripts/README.md"
+  ],
+  "required_text": {
+    "README.md": [
+      "AI Trader Toolbox"
+    ],
+    "scripts/ops/desk_mode.py": [
+      "DEFAULT = \"manual\""
+    ],
+    "skills/decision/trading-modes.md": [
+      "missing or unreadable: `manual`"
+    ],
+    "chat-bot-bridge/chat-rules.js": [
+      "return m in MODES ? m : 'manual'"
+    ],
+    "docs/open-source-boundary.md": [
+      "## Canonical directory structure"
+    ]
+  },
+  "secret_env_keys": [
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_ALLOWED_USER_ID",
+    "DISCORD_BOT_TOKEN",
+    "DISCORD_ALLOWED_USER_ID",
+    "DISCORD_CHANNEL_ID",
+    "ALLOWED_WA_ID",
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_AUTH_TOKEN",
+    "WHATSAPP_TOKEN",
+    "PHONE_NUMBER_ID",
+    "APP_SECRET",
+    "VERIFY_TOKEN"
+  ],
+  "sensitive_regexes": [
+    {
+      "name": "absolute macOS user path",
+      "pattern": "/Users/(?!YOUR_NAME\\b|YOUR_USER\\b)"
+    },
+    {
+      "name": "personal launchd label",
+      "pattern": "com\\.(?!example\\.)[A-Za-z0-9_-]+\\.(?:chat-bot|desk-)"
+    },
+    {
+      "name": "real session identifier field",
+      "pattern": "\"(?:claudeSessionId|codexSessionId|sessionId)\"\\s*:\\s*\"[^\"\\n]+\""
+    }
+  ],
+  "sensitive_scan_exclude": [
+    "docs/source-sync-policy.json"
+  ],
+  "local_denylist_paths": [
+    "scripts/ops/pii_denylist.local.txt",
+    "scripts/ops/knowledge_denylist.local.txt",
+    "scripts/pii_denylist.local.txt"
+  ]
+}

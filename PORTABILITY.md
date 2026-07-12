@@ -17,8 +17,8 @@ here, and every runtime sees the change (Claude Desktop after a one-command re-p
 ## One-time setup
 
 ```bash
-bash scripts/install_mirrors.sh        # symlinks Claude Code + global Codex to this folder
-python3 scripts/package_skill.py       # builds dist/ai-trader.zip for Claude Desktop upload
+bash scripts/ops/install_mirrors.sh        # symlinks Claude Code + global Codex to this folder
+python3 scripts/ops/package_skill.py       # builds dist/ai-trader.zip for Claude Desktop upload
 ```
 
 ## How each runtime points back here
@@ -35,10 +35,12 @@ The differences between runtimes (broker connector, subagents, git remote, order
 are handled **inside** `SKILL.md` → **"Portability & capability detection"**. At the start of a
 run the desk detects what's actually available and takes the matching branch:
 
-- **Data:** Robinhood MCP if present, else web + user-supplied OHLCV JSON/CSV → `scripts/indicators.py` (pure stdlib, runs anywhere).
+- **Data:** Robinhood MCP if present, else web + user-supplied OHLCV JSON/CSV → `scripts/analysis/indicators.py` (pure stdlib, runs anywhere).
 - **Roles:** parallel subagents if available, else sequential-but-separated passes.
-- **Delivery:** git-committed HTML if there's a remote, else local/inline markdown+HTML.
-- **Execution:** confirm-then-place only with a broker connector; otherwise emit an order ticket for the user to place. **Never auto-executes, on any runtime.**
+- **Delivery:** local self-contained HTML by default; publish only to an explicitly chosen private destination.
+- **Execution:** the public default is `manual` (preview plus explicit per-order confirmation).
+  `semi` and `full` require explicit opt-in under `skills/decision/trading-modes.md`; without a
+  broker connector, every mode falls back to an unplaced order ticket for the user.
 
 The rule that keeps it trustworthy: **degraded is fine, fabricated is not.** A missing
 capability means use the fallback and say so — never invent a quote or a catalyst to paper
@@ -48,5 +50,4 @@ over a gap.
 
 1. Edit files in this folder (only here).
 2. Claude Code & in-repo Codex: nothing to do — they read live.
-3. Claude Desktop: `python3 scripts/package_skill.py` → re-upload `dist/ai-trader.zip`.
-
+3. Claude Desktop: `python3 scripts/ops/package_skill.py` → re-upload `dist/ai-trader.zip`.

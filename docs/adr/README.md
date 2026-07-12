@@ -21,7 +21,7 @@ Routine bug fixes, copy edits, and new reference content don't need one.
 
 ## Process
 
-1. Scaffold: `python3 scripts/new_adr.py "Short decision title"` → creates the next
+1. Scaffold: `python3 scripts/ops/new_adr.py "Short decision title"` → creates the next
    `NNNN-slug.md` from [`template.md`](template.md) with status **Proposed**.
 2. Fill in Context / Decision / Consequences / Alternatives. Keep it under a page.
 3. Land it in the same commit/PR as the change it explains. Flip status to **Accepted** when
@@ -29,12 +29,17 @@ Routine bug fixes, copy edits, and new reference content don't need one.
 4. Never rewrite an accepted ADR's decision. To change course, write a new ADR and mark the
    old one **Superseded by ADR-NNNN**. Numbers are never reused.
 5. This directory is public — the PII gate applies. No account data, no personal identifiers;
-   run `python3 scripts/scan_pii.py` before pushing, like everything else.
+   run `python3 scripts/ops/scan_pii.py` before pushing, like everything else.
 
-`python3 scripts/new_adr.py --list` prints the index (number, status, title).
+`python3 scripts/ops/new_adr.py --list` prints the index (number, status, title).
 
 ## Index
 
 - [ADR-0001](0001-record-key-decisions-as-adrs.md) — Record key decisions as ADRs — Accepted
-- [ADR-0002](0002-toolkit-activity-log.md) — Toolkit activity log in `journal/toolkit.jsonl` — Accepted
+- [ADR-0002](0002-toolkit-activity-log.md) — Toolkit activity log in `journal/toolkit.jsonl` — Superseded by ADR-0004
 - [ADR-0003](0003-contribution-self-review-gate.md) — Contribution self-review: condensed wording + consistency gate — Accepted
+- [ADR-0004](0004-structured-runtime-activity-logs.md) — Structured runtime activity logs — Accepted
+- [ADR-0005](0005-universal-messenger-and-agent-bridge.md) — Universal messenger and agent bridge — Accepted
+- [ADR-0006](0006-grouped-scripts-with-compatibility-launchers.md) — Grouped scripts with compatibility launchers — Accepted
+- [ADR-0007](0007-significant-change-smoke-gate.md) — Significant-change smoke gate with human review — Accepted
+- [ADR-0008](0008-read-only-source-sync-audit.md) — Read-only source sync audit before public ports — Accepted

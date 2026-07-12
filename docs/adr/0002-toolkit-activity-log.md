@@ -1,6 +1,6 @@
 # ADR-0002: Toolkit activity log in `journal/toolkit.jsonl`
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0004
 - **Date:** 2026-07-11
 - **Deciders:** desk owner + desk agent
 
@@ -16,12 +16,12 @@ stdlib, runtime-agnostic, and zero risk of personal data landing in a publishabl
 ## Decision
 
 We will log toolkit activity as append-only JSONL to `journal/toolkit.jsonl` via
-`scripts/desk_log.py`, which offers three entry points: a `run --` wrapper that logs any
+`scripts/lib/desk_log.py`, which offers three entry points: a `run --` wrapper that logs any
 command's start/end/duration/exit code (plus a stderr tail on failure) without modifying the
 wrapped script; a `log` subcommand for manual pipeline milestones; and an importable
 `log_event`/`timed` API. `tail` and `stats` (per-script runs, error rate, p50/p95 duration,
 unfinished runs) read it back. The file lives in git-ignored `journal/`, and every string
-field is scrubbed against `scripts/pii_denylist.local.txt` before writing.
+field is scrubbed against `scripts/ops/pii_denylist.local.txt` before writing.
 
 The wrapper is the primary mechanism — scripts are not individually instrumented.
 

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.chat-bot-tunnel</string>
+    <!-- EDIT: replace YOUR-STATIC-DOMAIN.ngrok-free.app with the static domain
+         from https://dashboard.ngrok.com/domains before installing -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/ngrok</string>
+        <string>http</string>
+        <string>--url=YOUR-STATIC-DOMAIN.ngrok-free.app</string>
+        <string>3000</string>
+        <string>--log</string>
+        <string>stdout</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>15</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_NAME/Desktop/AI Trading/ai-trader-toolbox/chat-bot-bridge/logs/tunnel.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_NAME/Desktop/AI Trading/ai-trader-toolbox/chat-bot-bridge/logs/tunnel.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/YOUR_NAME</string>
+    </dict>
+</dict>
+</plist>

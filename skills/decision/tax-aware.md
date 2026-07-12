@@ -1,13 +1,17 @@
 # Tax-Aware Trading
 
-The tradable account (configured in `config.local.toml`) is assumed to be a **taxable individual brokerage account**, so realized gains and losses have real tax consequences. Taxes are a cost like any other — the desk optimizes **after-tax** returns. General framework, not tax advice; exact rates depend on income and filing status, so the user should confirm specifics with a professional.
+Read the account's tax treatment from local configuration or ask the user. Never infer that an
+account is taxable, tax-advantaged, or subject to one jurisdiction's rules. Apply this framework
+only where it matches the user's account and location. Taxes are a cost like any other, but this is
+general education—not tax advice; the user should confirm specifics with a professional.
 
 ## Core facts
 
 - **Holding period matters a lot.** Held **≤1 year → short-term gain, ordinary income** (higher rate). Held **>1 year → long-term gain, lower rate.** Often 10–20+ percentage points of the gain — the single biggest tax lever.
 - **Match gains and losses by type.** Short-term losses first offset short-term gains; long-term losses offset long-term gains; net the two after. Realized net losses can offset up to **$3,000** of ordinary income per year, remainder carried forward.
 - **Wash-sale rule.** Sell at a loss and buy the *same or substantially identical* security within **30 days before or after** → the loss is **disallowed** for now (added to the replacement's cost basis; holding period carries over). Don't harvest and jump right back in; wait 31+ days or use a genuinely different instrument.
-- **Retirement accounts are different.** IRAs (Roth/Traditional) are tax-sheltered — churn there has no immediate tax cost. This desk trades the *taxable* account, so tax-awareness is fully in force. If trades route to a sheltered IRA, relax the constraints.
+- **Tax-advantaged accounts are different.** Their treatment varies by jurisdiction and account
+  type. Apply taxable-account constraints only when the configured execution account is taxable.
 
 ## How the sleeves handle tax
 

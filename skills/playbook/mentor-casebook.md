@@ -25,9 +25,8 @@ their **dated calls** so the desk can check the method against reality.
 | _yyyy-mm-dd_ | _TICK_ | _buy $X → $Y, stop $Z_ | _…_ | _pending_ | _…_ |
 
 Reconcile against live prices periodically — a method is only as good as how its calls aged. The
-desk's own calls are logged separately by `scripts/track_record.py` (see
+desk's own calls are logged separately by `scripts/journal/track_record.py` (see
 `skills/decision/reflection-memory.md`).
 
 > **Privacy:** never commit someone's paywalled/members-only live positions. Distill the *method*
 > (fine to share); keep the *positions* private.
-

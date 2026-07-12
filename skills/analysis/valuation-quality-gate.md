@@ -9,7 +9,7 @@ scripts apply the rules.
 
 ## 1. Quality gate — required before any "definer/hold" classification
 
-`python3 scripts/quality_gate.py metrics/<ticker>.json [--exempt "filter=type: why"]`
+`python3 scripts/analysis/quality_gate.py metrics/<ticker>.json [--exempt "filter=type: why"]`
 
 Seven disqualifiers (eliminate confirmed-bad, don't certify good): 10-yr avg ROE <8% ·
 5-yr cumulative FCF negative · interest coverage <2x · gross margin <15% · 5-yr OCF/NI
@@ -26,14 +26,14 @@ written justification: `growth-stage`, `reinvestment`, `high-turnover` (Costco-s
 
 ## 2. Reverse DCF — every "hold" carries the growth rate its price implies
 
-`python3 scripts/reverse_dcf.py --mcap <$> --fcf <TTM$>` → "price implies X%/yr FCF
+`python3 scripts/analysis/reverse_dcf.py --mcap <$> --fcf <TTM$>` → "price implies X%/yr FCF
 growth for 10 years." One number that exposes an overextended definer instantly.
 Reads: ≥25%/yr = very demanding (justify or trim) · 15–25% = demanding (compare to
 actual growth) · 5–15% = reasonable · <5% = market prices stagnation (potential value).
 
 ## 3. Three-scenario ceiling — holds get exit bands, not just entry bands
 
-`python3 scripts/reverse_dcf.py --fcf <$> --shares <n> --price <px> --scenarios
+`python3 scripts/analysis/reverse_dcf.py --fcf <$> --shares <n> --price <px> --scenarios
 0.20:25 0.12:18 0.05:12` (optimistic/base/pessimistic growth:exit-multiple) →
 per-share fair values. **The optimistic-scenario value is the hold's price ceiling** —
 register it in `journal/action-levels.jsonl` as a `direction: above` TRIM/REVIEW alert,

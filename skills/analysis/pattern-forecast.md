@@ -3,7 +3,7 @@
 **When:** a name is coiling (Bollinger band narrowing) or testing a support/resistance
 level repeatedly, and someone asks the real question — *"which way does it break, and
 by how much?"* Answer it with numbers, from the data, not with a hunch. Engine:
-`scripts/forecast.py`. This is how the desk earns the word **confident**.
+`scripts/analysis/forecast.py`. This is how the desk earns the word **confident**.
 
 ## What it computes (three independent lenses)
 
@@ -58,14 +58,14 @@ state P(up)/P(down), the expected/median move and cone, the first-passage read, 
 ladder, and a split confidence ("**high on the plan, low on timing the exact low**").
 
 ```
-python3 scripts/forecast.py MP.json --price 53.48 --horizon 20 --sims 30000 \
+python3 scripts/analysis/forecast.py MP.json --price 53.48 --horizon 20 --sims 30000 \
         --breakout 60.19 --breakdown 51.63 --drift -0.18 --peers NVDA.json,TSLA.json
 ```
 
 **Feed it deep history.** The Robinhood connector gives only ~1y of bars; base rates and the
 bootstrap sharpen with more sample. Pass a **bare ticker** (subject *or* `--peers`) and it pulls
 multi-year daily bars from Yahoo automatically — `forecast.py MP --price 53.31 --peers ALB,SQM` —
-or pre-fetch with `scripts/yahoo.py MP --range 5y --out reports/data/MP.json`. Pick *pattern-kin*
+or pre-fetch with `scripts/lib/yahoo.py MP --range 5y --out reports/data/MP.json`. Pick *pattern-kin*
 peers (same coil-on-support behaviour, e.g. lithium miners for MP) to widen the analog pool. One
 caveat: the **squeeze percentile is lookback-dependent** — a band tight against the last year can be
 mid-pack against five — so name the window when you cite it, and don't let a longer lookback quietly

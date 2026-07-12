@@ -4,7 +4,7 @@
 
 Borrowed-and-adapted from TradingAgents' `reflect_on_final_decision` + decision-memory injection.
 
-The journal lives **in the repo** (`journal/`), not a runtime-specific store — so Claude Code, Claude Desktop, and Codex all read/write the *same* history (single source of truth, per `PORTABILITY.md`). Managed by `scripts/track_record.py`.
+The journal lives **in the repo** (`journal/`), not a runtime-specific store — so Claude Code, Claude Desktop, and Codex all read/write the *same* history (single source of truth, per `PORTABILITY.md`). Managed by `scripts/journal/track_record.py`.
 
 ---
 
@@ -17,14 +17,14 @@ The journal lives **in the repo** (`journal/`), not a runtime-specific store —
 ### 1. RECALL — start of a run (SKILL.md Step 1)
 For every candidate ticker, pull prior decisions and lessons and **inject them as context** before analyzing:
 ```bash
-python3 scripts/track_record.py recall --symbol NKE
+python3 scripts/journal/track_record.py recall --symbol NKE
 ```
 Returns the last few same-ticker decisions (stance, entry/stop/target, score) and their reflections. Also pull **setup-type** lessons (e.g. "buying pre-markup chip-washes", "fading a crowded momentum name") so the desk applies what it learned on *analogous* trades. A past lesson can flip or size a new call.
 
 ### 2. LOG — when a recommendation is surfaced (SKILL.md Step 9)
 Append the decision:
 ```bash
-python3 scripts/track_record.py log --symbol NKE --sleeve core --action accumulate \
+python3 scripts/journal/track_record.py log --symbol NKE --sleeve core --action accumulate \
   --entry 42.20 --stop 38.50 --target 90 --horizon "6mo" --conviction high \
   --score 78 --thesis "pre-markup chip-wash accumulation; turnaround" --setup chip-wash
 ```
@@ -33,7 +33,7 @@ Log every surfaced idea (and vetoed ones, with the failing gate — losers teach
 ### 3. SCORE — when the outcome matures (a later run, or on request)
 Given entry, a later exit/mark, and SPY over the same window:
 ```bash
-python3 scripts/track_record.py score --id <decision-id> --exit 61.00 \
+python3 scripts/journal/track_record.py score --id <decision-id> --exit 61.00 \
   --spy-entry 611 --spy-exit 640
 ```
 Produces **raw return** and **alpha vs SPY** (raw minus SPY over the window), and tags the call hit/miss vs target and stop. Alpha matters more than raw — beating SPY is the bar; making 10% while SPY made 15% is a losing call.
@@ -46,7 +46,7 @@ Write a **terse 2–4 sentence reflection** (plain prose, no bullets), in order:
 
 Every word must earn its place — it's stored verbatim and re-read by future runs. Store it:
 ```bash
-python3 scripts/track_record.py reflect --id <decision-id> \
+python3 scripts/journal/track_record.py reflect --id <decision-id> \
   --text "Right direction, +18% raw / +13% alpha. Chip-wash accumulation thesis was correct but the base took ~5 months, not the 6–8 weeks implied. Lesson: on immature bases, smaller starter + wider time stop; don't front-run the markup."
 ```
 

@@ -14,6 +14,10 @@ not fork or copy the instructions — read them in place.
 3. **Tools:** [`scripts/`](scripts/) — pure-Python-stdlib, no dependencies, run on any
    `python3`. `indicators.py` is the quant engine; `charts.py`/`build_report.py` render the
    report; `new_report.py` scaffolds it.
+4. **Public/private development boundary:** before moving, publishing, or generalizing a feature,
+   read [`docs/open-source-boundary.md`](docs/open-source-boundary.md). Significant changes must
+   review whether that living standard also needs an update. For any source repo, fork, or user
+   branch, begin with its read-only `python3 scripts/ops/sync_audit.py --source <path>` workflow.
 
 ## Before you run: detect your environment
 
@@ -24,18 +28,17 @@ detection"** in `SKILL.md` and follow the branch that matches what you actually 
 - **Market data** — if Robinhood MCP tools are loaded, use them (`skills/execution/data-and-execution.md`).
   If not (the usual case in Codex), use the **web + manual-data fallback**: pull quotes /
   fundamentals / news via web search, and have the user save ~1yr of daily OHLCV as JSON or CSV
-  for `scripts/indicators.py`. The scripts never call the broker themselves.
+  for `scripts/analysis/indicators.py`. The scripts never call the broker themselves.
 - **Roles** — if you can spawn subagents, run the desk roles in parallel. If not, play them
   sequentially yourself but keep the bull case, bear case, and risk review genuinely separate.
 - **Delivery** — if you have a writable git remote, build and push the HTML report. Otherwise
   deliver the markdown/HTML locally or inline.
-- **Execution** — **never auto-execute.** Place an order only where a broker connector exists
-  *and* the user has given an explicit, order-specific "yes" to a previewed ticket. With no
-  connector, output the exact order ticket (symbol, side, qty, type, limit) for the user to
-  place manually. See the hard rule in `skills/execution/data-and-execution.md`.
+- **Execution** — read `skills/decision/trading-modes.md` before any order. The public default is
+  `manual`: preview and obtain an explicit, order-specific confirmation. `semi` and experimental
+  `full` require explicit user opt-in and remain bounded by previews, account scope, sufficiency,
+  risk gates, logging, and the kill switch. With no connector, output an unplaced exact ticket.
 
 ## Not financial advice
 
 This desk analyzes and recommends; the user approves and places every order. Always state the
 key risks.
-

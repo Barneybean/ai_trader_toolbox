@@ -1,63 +1,64 @@
 # Reports
 
-Dated archive of AI Trader runs. Each run is delivered — and **committed** — as
-**styled, self-contained HTML** (`.html`), with per-name charts under `charts/`.
+Finished, self-contained desk reports with a small and predictable lifecycle.
 
-The markdown (`.md`) is only a **local build intermediate**: `new_report.py` scaffolds it,
-the run fills it, `build_report.py` renders it to HTML — then it is **not kept in the repo**
-(the HTML is the artifact). Regenerate a `.md` locally only if you need to edit and re-render.
+## Directory layout
+
+```text
+reports/
+├── report_YYYY-MM-DD_<title>_<model>.html  # current ISO week only
+├── archive/
+│   └── YYYY-Www/                          # prior-week HTML deliverables
+├── assets/
+│   └── charts/YYYY-Www/                   # regenerable SVG chart sources
+├── cache/
+│   └── market-data/YYYY-Www/              # local input cache; git-ignored
+├── examples/
+│   └── sample-report.html                 # maintained, non-live example
+└── .build/
+    └── YYYY-Www/                          # markdown sources; git-ignored
+```
+
+The root is intentionally an inbox for the current week. `organize_reports.py`
+moves older HTML and partitions support files by the ISO week encoded in their
+filenames. It runs automatically from `new_report.py` and `build_report.py`.
+
+## Artifact policy
+
+- **HTML is the deliverable.** It contains its SVG charts and can be opened or
+  shared without adjacent files.
+- **Chart SVGs are sources.** They are grouped by week under `assets/charts/`.
+- **Market data is cache.** It is reproducible, local, and never committed.
+- **Markdown is build state.** It stays under `.build/` and is never committed.
+- **Archive paths are immutable by date.** Rebuilding an old report atomically
+  refreshes the copy in its original ISO-week folder.
 
 ## Naming
 
-`report_<YYYY-MM-DD>_<title>_<model>.html` — the committed deliverable (SVG charts inlined, so
-it's one portable file). **This is what you open/share.**
-- **date** — run date (Pacific), ISO so files sort chronologically.
-- **title** — the run's focus, slugified: `daily-desk-run`, `nvda-deep-dive`, `watchlist-review`.
-- **model** — the AI model that ran the desk, slugified: `claude-fable-5`, `gpt-5`, …
+`report_<YYYY-MM-DD>_<title>_<model>.html`
 
-Example: `report_2026-07-05_daily-desk-run_claude-fable-5.html`
-`charts/<TICKER>-YYYY-MM-DD-{price,chips,gauges}.svg` — the per-name chart sources.
+Example: `report_2026-07-11_meta-live-review_claude-fable-5.html`.
 
-## How they're produced
-
-The daily report is a **full desk run** of AI Trader, executed
-in an interactive session so the Robinhood connector (live positions, quotes,
-watchlists) is available. It is **not** an unattended cloud job — a cloud agent
-can't write to this local folder, and a headless local run loses the Robinhood
-connector.
-
-### One-command trigger
-
-In a session with the desk skill and Robinhood connected, say:
-
-> run the daily desk report
-
-That runs the full pipeline and saves the result here. The three build steps:
+## Build workflow
 
 ```bash
-# 1) dated markdown scaffold (title + section skeleton) — fill it with the analysis
-python3 scripts/new_report.py --market open --date 2026-07-03 \
-    --title daily-desk-run --model claude-fable-5
+# Scaffold into reports/.build/YYYY-Www/
+python3 scripts/report/new_report.py --market open --date 2026-07-11 \
+  --title daily-desk-run --model claude-fable-5
 
-# 2) per-name charts (reuses the historicals already pulled for indicators.py)
-python3 scripts/charts.py <historicals.json> --symbol SOFI --price <live> --float <float> \
-    --out reports/charts --date 2026-07-03
-#    → paste the printed image-embed block into that name's block in the .md
+# Generate chart sources into reports/assets/charts/YYYY-Www/
+python3 scripts/report/charts.py <historicals.json> --symbol META \
+  --price <live> --float <float> --date 2026-07-11
 
-# 3) render the styled, self-contained HTML deliverable (charts inlined)
-python3 scripts/build_report.py reports/report_2026-07-03_daily-desk-run_claude-fable-5.md
+# Build current-week HTML into reports/; charts resolve by report week
+python3 scripts/report/build_report.py \
+  reports/.build/2026-W28/report_2026-07-11_daily-desk-run_claude-fable-5.md \
+  --out reports/report_2026-07-11_daily-desk-run_claude-fable-5.html
+
+# Optional explicit maintenance/audit
+python3 scripts/report/organize_reports.py
 ```
 
-`new_report.py` builds only the scaffold; the analysis is filled by the desk run.
-`charts.py` and `build_report.py` are documented in `skills/execution/data-and-execution.md`.
-
-## Publishing
-
-Each report is committed and pushed to your GitHub repo so
-there's a versioned history — commit the **`.html` and `charts/`** (the `.md` is a local
-build intermediate and is not committed):
-
-```bash
-git add reports/*.html reports/charts && git commit -m "Daily desk report YYYY-MM-DD" && git push
-```
-
+Keep personal reports local or publish them only to a private fork. The public toolkit ignores
+current reports, archives, chart assets, caches, and build intermediates; only the maintained,
+sanitized file under `examples/` belongs in the open-source repository.

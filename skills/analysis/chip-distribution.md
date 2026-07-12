@@ -37,7 +37,7 @@ Shares by the price holders bought at. Read:
 - **Overhead supply.** Dense chips above price = "get out even" sellers; each rally meets supply
   until absorbed. Light overhead = clean runway.
 
-**The desk computes it — `scripts/indicators.py` → `chip_distribution`.** Builds an actual
+**The desk computes it — `scripts/analysis/indicators.py` → `chip_distribution`.** Builds an actual
 筹码分布 from volume-at-price: walks daily bars, distributes each day's volume across its range,
 and **decays older chips by turnover** (exact with `--float <shares>`; recency half-life
 otherwise) so the profile reflects who holds *now*. Fields:

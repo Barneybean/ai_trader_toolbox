@@ -7,7 +7,7 @@ contraction** — a stock coils (tightening range, drying volume, a squeeze) bef
 skill reads both and answers the user's question directly: *is this name set up for a large move,
 which way, and what confirms it?*
 
-Powered by **`scripts/flow_anomaly.py`** (pure stdlib, reuses `indicators.py`). Pairs with
+Powered by **`scripts/analysis/flow_anomaly.py`** (pure stdlib, reuses `indicators.py`). Pairs with
 `skills/analysis/chip-distribution.md` (the ownership gate + who-holds-it read is REQUIRED here —
 see below), `skills/analysis/quant-levels.md` (the S/R the move breaks from),
 `skills/edge/smart-money.md` (insider buys *are* accumulation). Probabilistic on a volume-only
@@ -17,7 +17,7 @@ proxy — it can't see dark/off-exchange prints; confirm, don't obey blindly.
 
 ## What the engine outputs
 
-Run: `python3 scripts/flow_anomaly.py <historicals.json> --price <live> [--options opt.json]`
+Run: `python3 scripts/analysis/flow_anomaly.py <historicals.json> --price <live> [--options opt.json]`
 
 - **`flow_pressure` −100…+100** — signed net pressure. Blend of CMF(20), MFI(14), A/D-line slope,
   the sign of the most *unusual*-volume recent bar, and (if supplied) options lean. +ve =

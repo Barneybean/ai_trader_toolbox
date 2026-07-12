@@ -4,6 +4,10 @@ Thanks for your interest! This project is an open-source **starter** desk — ge
 knowledge and one example skill that people fork and customize. Contributions that make the *base*
 better for everyone are very welcome.
 
+Before proposing or syncing a feature into the public toolbox, read the canonical
+[`Open-Source Boundary and Customization Standard`](docs/open-source-boundary.md). It defines what
+belongs in the reusable core, what must be configurable, and what must remain private.
+
 ## Ways to contribute
 
 - ⭐ **Playbooks** — sector/industry or single-stock (see below).
@@ -57,12 +61,13 @@ happen in the open, the way the desk reviews a trade — expect a bull/bear pass
 This is a public repo. **Never commit personal or account data** — account numbers, API keys,
 connector/watchlist UUIDs, real positions, or a specific person's private book.
 
-- Put secrets in `config.local.toml` / `.env` (git-ignored).
+- Put desk settings in `config.local.toml` and bridge secrets in
+  `chat-bot-bridge/.env` (both git-ignored).
 - Put anything personal in `skills/private/` (git-ignored).
 - **Run the gate before every push:**
   ```bash
-  bash scripts/install_hooks.sh     # once: installs pre-commit + pre-push PII hooks
-  python3 scripts/scan_pii.py       # on demand
+  bash scripts/ops/install_hooks.sh     # once: installs pre-commit + pre-push PII hooks
+  python3 scripts/ops/scan_pii.py       # on demand
   ```
   CI (`.github/workflows/pii-scan.yml`) will fail a PR that trips the scanner.
 
@@ -71,8 +76,8 @@ you can pull upstream updates to the base without exposing your customizations.
 
 ## Branch model
 
-- **`opensource`** (this branch) — the clean, public starter. PRs target this branch. The PII gate
-  is enforced here.
+- **`main`** — the clean public toolkit and normal PR target. The PII and consistency gates run
+  here; release/public branch names remain supported by the local hooks.
 - Personal/customized branches are *yours* and are not the target of PRs.
 
 ## Dev setup
@@ -83,9 +88,22 @@ and make it optional.
 
 ```bash
 git clone <your-fork> && cd ai-trader
-bash scripts/install_hooks.sh
-python3 scripts/indicators.py <historicals.json> --price <px>   # sanity-check the engine
+bash scripts/ops/install_hooks.sh
+python3 scripts/analysis/indicators.py <historicals.json> --price <px>   # sanity-check the engine
 ```
+
+## Syncing from a private desk, fork, or user branch
+
+Treat another source as untrusted for publication even when you own it. Follow
+[`docs/open-source-boundary.md`](docs/open-source-boundary.md) and begin with:
+
+```bash
+python3 scripts/ops/sync_audit.py --source /path/to/source
+```
+
+Never merge a private branch into public or share the public push remote with a private repository.
+Port one capability unit manually, preserve public-only assets, run all gates, and obtain human
+review. A `reusable_candidate` classification means “reviewable,” not “safe to copy automatically.”
 
 ## Style & conventions
 
@@ -102,9 +120,9 @@ python3 scripts/indicators.py <historicals.json> --price <px>   # sanity-check t
 
 Changes to the desk **method**, toolkit **architecture**, **data contracts**, or the
 **privacy posture** carry an Architecture Decision Record in the same PR — scaffold with
-`python3 scripts/new_adr.py "Title"` and see [`docs/adr/README.md`](docs/adr/README.md) for
+`python3 scripts/ops/new_adr.py "Title"` and see [`docs/adr/README.md`](docs/adr/README.md) for
 the when/how. Routine fixes and new reference content don't need one. When debugging a
-script, wrap it with `python3 scripts/desk_log.py run -- <cmd>` so the failure lands in the
+script, wrap it with `python3 scripts/lib/desk_log.py run -- <cmd>` so the failure lands in the
 activity log (`desk_log.py tail --errors`).
 
 ## Self-review before opening a PR
@@ -114,8 +132,8 @@ Review your own change the way the desk reviews a trade — *before* anyone else
 1. **Run the gates** (the pre-push hook and CI re-run both; passing locally first is the point):
 
    ```bash
-   python3 scripts/check_consistency.py   # conflicts: broken refs, unregistered playbooks, ADR integrity, word budgets
-   python3 scripts/scan_pii.py            # privacy: no personal/account data
+   python3 scripts/ops/check_consistency.py   # conflicts: broken refs, unregistered playbooks, ADR integrity, word budgets
+   python3 scripts/ops/scan_pii.py            # privacy: no personal/account data
    ```
 
 2. **Condensed-wording pass** — reread your diff and cut: intros, hedges, restated context,
@@ -132,6 +150,12 @@ Review your own change the way the desk reviews a trade — *before* anyone else
 2. Keep PRs focused; describe the *why*.
 3. Complete the self-review above — gates green, wording condensed, no conflicts.
 4. For a new broker/sector, follow the existing interface/template so it composes.
+5. State that `docs/open-source-boundary.md` was reviewed. Update it in the same PR when the change
+   adds or changes a strategy default, risk/cash policy, mentor framework, data source, broker,
+   agent runner/switching rule, execution mode, memory/report surface, phone integration, privacy
+   rule, or public standard.
+6. If the change touches README, docs, skills, scripts, `chat-bot-bridge/`, or hooks, run `python3 scripts/ops/smoke_test.py`
+   and fix any wiring it flags before opening the PR.
 
 ## Adding a broker (interface sketch)
 
@@ -142,4 +166,3 @@ issue to coordinate so your adapter drops into the same shape.
 
 By contributing, you agree your contributions are licensed under the repo's [`LICENSE`](LICENSE).
 Not financial advice — see the README disclaimer.
-

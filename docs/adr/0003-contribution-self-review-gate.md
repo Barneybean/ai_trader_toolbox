@@ -19,7 +19,7 @@ We will require a **self-review before any PR**, documented in `CONTRIBUTING.md`
 in the PR template: (1) run the gates locally, (2) a condensed-wording pass over the diff,
 (3) a conflict pass against `docs/adr/`, the coverage maps, and neighboring skills.
 
-The mechanical half is enforced by `scripts/check_consistency.py` (stdlib), run in the
+The mechanical half is enforced by `scripts/ops/check_consistency.py` (stdlib), run in the
 pre-push hook and in CI (`.github/workflows/consistency.yml`). **Errors (block):** broken
 internal links, ADR-integrity violations, unregistered sector/stock playbooks,
 case-colliding filenames. **Warnings (reviewer judgment):** word budgets (~2,600 words per

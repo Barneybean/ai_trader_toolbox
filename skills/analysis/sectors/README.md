@@ -47,5 +47,5 @@ Sectors we haven't listed are just as welcome — the table grows with the commo
    here from *wanted* to *covered*.
 3. Meet the quality bar in [`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-playbook-quality-bar):
    **specific · falsifiable · primary-sourced · dated · illustrated · general.**
-4. `python3 scripts/scan_pii.py` must pass — share the craft, never your positions or anything you
+4. `python3 scripts/ops/scan_pii.py` must pass — share the craft, never your positions or anything you
    don't have the right to publish.

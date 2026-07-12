@@ -18,11 +18,13 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - `edge/smart-money.md` — insider Form-4 & institutional flows as weighted evidence (buys at bottoms vs. selling into strength).
 
 ## analysis/ — how to analyze a name
-- `analysis/quant-levels.md` — the level engine: support/resistance map, ADX, momentum, ATR stops, RR/EV (drives `../scripts/indicators.py`).
+- `analysis/quant-levels.md` — the level engine: support/resistance map, ADX, momentum, ATR stops, RR/EV (drives `../scripts/analysis/indicators.py`).
 - `analysis/chip-distribution.md` — institutional footprint: Wyckoff phase, chip/cost-basis distribution, accumulation vs. distribution, anticipating chip washes (洗盘).
-- `analysis/money-flow.md` — unusual-money-movement detector: signed flow pressure (CMF/MFI/A-D + unusual-volume sign), price-vs-flow divergence, effort-vs-result absorption, the squeeze/coil energy gauge, options overlay → a COILED_BULLISH/BEARISH/EXPANSION verdict + trigger (drives `../scripts/flow_anomaly.py`).
+- `analysis/money-flow.md` — unusual-money-movement detector: signed flow pressure (CMF/MFI/A-D + unusual-volume sign), price-vs-flow divergence, effort-vs-result absorption, the squeeze/coil energy gauge, options overlay → a COILED_BULLISH/BEARISH/EXPANSION verdict + trigger (drives `../scripts/analysis/flow_anomaly.py`).
 - `analysis/industry-map.md` — layer a theme into its supply chain; score each layer on certainty/purity/elasticity; proof-over-promise, core-vs-option, mature-comparable yardstick, BOM bottleneck, label-vs-holdings → a layer-ranked, tagged call. The method behind an industry/theme deep-dive.
-- `analysis/value-radar.md` — the ≥30% undervaluation hunt: fair value = median of ≥2 independent legs (owner-earnings DCF at underwritten growth, mature-comparable multiple, own-history band — `../scripts/value_radar.py`), washed+basing entry gate (cheap-and-knifing = WAIT + an action level), survivable bear floor, and the funnel (TURNING sectors, washouts, insider clusters, overreactions). The radar ranks; the quality gate, catalyst map and gauntlet decide.
+- `analysis/business-inflection.md` — mandatory forward-business read for single-name deep dives: inventory strategic changes, map them to estimates versus multiple reclassification, decide what is priced, and attach a dated proof clock.
+- `analysis/valuation-quality-gate.md` — executable fundamental hard gate: business quality and survivability plus the expectations already embedded in price; exemptions must be explicit.
+- `analysis/value-radar.md` — the ≥30% undervaluation hunt: fair value = median of ≥2 independent legs (owner-earnings DCF at underwritten growth, mature-comparable multiple, own-history band — `../scripts/analysis/value_radar.py`), washed+basing entry gate (cheap-and-knifing = WAIT + an action level), survivable bear floor, and the funnel (TURNING sectors, washouts, insider clusters, overreactions). The radar ranks; the quality gate, catalyst map and gauntlet decide.
 - `analysis/catalyst-scan.md` — dated-event radar: the forward calendar (earnings, maturities, regulatory — each date + direction-if-hit), why-did-it-move attribution for every ±3% session, and the **company-response read** (what management is *doing* about each headwind: IMPROVING / WORSENING / COSMETIC). Feeds the levels registry (`not_before`/`expires` around binaries), tax-aware Path B, and the per-name **catalyst map** section every report requires. Its **Tier S** is the pre-positioning playbook: forecast probable-but-unannounced events (renewal calendars, concentration disclosures, duopoly gaps) and buy the *setup* that carries announcement optionality — with sell-the-news discipline decided in advance.
 - `analysis/macro-regime.md` — top-down weather: Fed path, rates, VIX, breadth; regime tilt.
 - `analysis/crisis-playbook.md` — crash/regime-shock manual: survive + hunt (phase map + case studies 2000/2008/COVID/2025/2026). Invoked by macro-regime.
@@ -37,9 +39,12 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - `decision/stress-test.md` — adversarial questioning: if→then audit, two-sided catalysts, load-bearing assumptions, pre-mortem. The bear's ammunition.
 - `decision/sufficiency-gate.md` — the reviewer's question before ANY actionable call ships (full run or ad-hoc): *"have you collected enough information and done enough quant analysis?"* — dated + priced-in facts, 72h tape, strongest opposing fact named, full engine suite w/ disagreements reported, adversarial verify on stake-heavy/reversal calls; reviewer ≠ author.
 - `decision/strategies.md` — exit discipline, rank-and-rotate, validation patterns.
-- `decision/sell-timing.md` — popular/momentum exits: ride the overshoot, leave before the give-back. Six distribution tells (extension, distribution days, OBV divergence, climax, chip saturation, give-back) → RIDE / TIGHTEN / TRIM / EXIT with a printed stop ladder (`../scripts/exit_radar.py`); sell into strength; the ratchet never surrenders >⅓ of peak gain. Runs on every holding up ≥30% at every desk run.
+- `decision/sell-timing.md` — popular/momentum exits: ride the overshoot, leave before the give-back. Six distribution tells (extension, distribution days, OBV divergence, climax, chip saturation, give-back) → RIDE / TIGHTEN / TRIM / EXIT with a printed stop ladder (`../scripts/analysis/exit_radar.py`); sell into strength; the ratchet never surrenders >⅓ of peak gain. Runs on every holding up ≥30% at every desk run.
+- `decision/weekly-retrospective.md` — weekly continuity and calibration: `../scripts/journal/weekly_review.py` re-reads reports, marks the open book, scores mature calls, and updates rules only after repeated evidence.
+- `decision/insight-registry.md` — machine-readable, expiring method hypotheses in the private journal; out-of-sample scoring determines which signals earn attention.
 - `decision/reflection-memory.md` — the learning loop: log, score raw + alpha-vs-SPY, one lesson, recall into future runs. *(From TradingAgents.)*
 - `decision/tax-aware.md` — holding-period, wash-sale, tax-loss-harvest rules.
+- `decision/trading-modes.md` — shared execution-authority switch: `manual` is the public default and kill switch; `semi` and `full` require explicit user opt-in.
 
 ## playbook/ — the user's context (bring-your-own; git-ignored overlay in `skills/private/`)
 - `playbook/mentor-method.md` — undervalued-quality + 2x path, management read, 25% concentration cap.
@@ -50,10 +55,13 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - `playbook/private-deals.md` — venture DD framework (separate, non-tradable track).
 
 ## execution/
-- `execution/data-and-execution.md` — broker tool map, account/watchlist config, confirm-before-every-order guardrails.
+- `execution/data-and-execution.md` — broker tool map, account/watchlist config, preview discipline, and mode-gated authorization rules.
 
 ## scripts/ (`../scripts/`)
-`indicators.py` (quant engine) · `flow_anomaly.py` (unusual money-movement: flow pressure + coil energy → large-move verdict) · `value_radar.py` (≥30% mispricing hunt: multi-leg fair value + washed/basing gate) · `exit_radar.py` (distribution tells → RIDE/TIGHTEN/TRIM/EXIT + stop ladder) · `charts.py` (SVG charts) · `build_report.py` (HTML) · `new_report.py` (scaffold) · `track_record.py` (journal + reflection) · `install_hooks.sh` / `scan_pii.py` (PII gate) · `install_mirrors.sh` / `package_skill.py` (runtime wiring).
+The canonical grouped inventory is in [`../scripts/README.md`](../scripts/README.md). Key memory
+tools are `../scripts/journal/desk_memory.py`, `../scripts/journal/mentor_history.py`, and
+`../scripts/journal/weekly_review.py`; analysis, report, library, and operations tools live in
+their matching subdirectories.
 
 ---
 
@@ -70,4 +78,3 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - **New wave** → extend `edge/thematic-waves.md`.
 - **New signal** → new file in the right group; wire into `decision/roles.md` + the rubric; update this map.
 - Every sub-skill: self-contained, skimmable — purpose → framework → guardrails.
-

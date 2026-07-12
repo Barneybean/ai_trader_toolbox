@@ -78,7 +78,9 @@ A gate failure goes in the internal log with the reason, and appears (one line) 
 
 - **Per-idea risk cap:** ≤ **2%** of account on one idea (entry→stop × shares ≤ 2%). Governs how much you can *lose*.
 - **Per-name concentration cap (mentor rule):** no position exceeds **25% of portfolio** — a hard ceiling, never a target. Size by **conviction tier**: ~7–8% high-conviction large-cap, ~4–5% growth/semis, ~3–4% dividend/defensive, ~1–2% speculative. Both caps apply; the binding one wins. See `skills/playbook/mentor-method.md`.
-- **Cash is a deliberate hedge (~30–40% default) and a weapon.** Don't feel obligated to be fully invested — dry powder into pullbacks/crashes is where the mentor makes the most (`skills/playbook/mentor-casebook.md`). Spend to ~15–20% in a real crash (Aug-2024, April-2025 archetypes), then rebuild by trimming winners into strength.
+- **Cash is a deliberate hedge and a weapon, not a permanent percentage.** Derive it from the
+  user's policy, market regime, opportunity quality, and upcoming binaries. Deploy in tranches
+  during qualified dislocations and rebuild through trims; document the current rationale.
 - **Scale in on weakness, in tranches, with pre-planned lower adds.** Never open at full size; ladder small adds (~0.25–1% of book per tranche; 2–4% only in a crash or top-conviction) with next levels defined in advance. Buying weakness in quality > chasing strength (the chase is the trap).
 - **Cap, then trim into strength.** When a name runs past its tier (a core toward ~10–15%, a top-conviction toward ~20% but never past the 25% cap), *trim the excess into the spike/target* to control risk and refill cash. Trims fund the next pullback's buys. Scale-outs at resistance rungs (`skills/analysis/quant-levels.md`) and targets.
 - **Hedging is short-term insurance only.** At highs, a small (1–2%) short-term hedge/put/short is acceptable — flag it, keep it small, flatten it fast; cash is the safer hedge. Never a standing short book.

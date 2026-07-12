@@ -2,7 +2,7 @@
 
 The desk's bar for deploying *new* capital into a value idea: the path to **at least +30%**
 must be arithmetic, not adjectives — and the entry must be *washed*, because a cheap stock
-that never flushed has no forced seller to buy from. `scripts/value_radar.py` turns the
+that never flushed has no forced seller to buy from. `scripts/analysis/value_radar.py` turns the
 desk's underwritten inputs into a ranked, falsifiable screen.
 
 ## Why 30%
@@ -17,7 +17,7 @@ the point (edge or silence).
 
 Run the hunt where mispricings actually live, not down the S&P alphabetically:
 
-1. **TURNING / NEGLECTED sectors** from `scripts/rotation_radar.py` — value with a
+1. **TURNING / NEGLECTED sectors** from `scripts/analysis/rotation_radar.py` — value with a
    rotation tailwind beats value in a falling-knife sector.
 2. **Washout lists** — names ≥20–40% off their 52-week high where the *business* didn't
    shrink with the price (revenue/backlog intact; multiple did the falling).

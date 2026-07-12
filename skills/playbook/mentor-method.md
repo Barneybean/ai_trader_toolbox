@@ -44,8 +44,9 @@ turnaround" — is a distinct, repeatable setup.
 
 ## Cash is a position
 
-Hold meaningful dry powder (~30% default) and deploy into quality *during pullbacks* — a broad
-selloff is the time to buy, not freeze. Cash is a deliberate hedge, not leftover.
+Hold meaningful dry powder and deploy into quality *during pullbacks*. The amount is configured by
+the user and changes with regime, opportunity quality, and upcoming risk; this method does not set
+a permanent cash percentage. Cash is a deliberate hedge, not leftover.
 
 ## Discipline principles (the mindset layer)
 
@@ -59,4 +60,3 @@ selloff is the time to buy, not freeze. Cash is a deliberate hedge, not leftover
 
 > **Make it yours.** A starter method. Replace the specifics with the discipline you actually
 > follow; keep any private book/track record in `skills/private/` (git-ignored).
-

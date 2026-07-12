@@ -1,0 +1,46 @@
+# Phone Connection
+
+Use a messaging bridge if you want the desk reachable from your phone.
+
+This repo publishes the interface and the guardrails, not a personal live configuration. Keep
+provider tokens, chat IDs, and session state in local git-ignored files.
+
+The bridge runtime lives under [`chat-bot-bridge/`](../chat-bot-bridge/).
+
+## What the bridge should do
+
+- accept plain-language desk requests from your phone;
+- forward reports, approvals, follow-ups, and questions to the active agent;
+- show the current mode, agent preference, and session health;
+- preserve confirm-before-order behavior in every mode;
+- fall back cleanly when the active agent is unavailable, without exposing private session data.
+
+## Setup shape
+
+1. Choose a supported messaging provider.
+2. Configure the bridge locally with provider credentials and allowlists.
+3. Connect it to the desk workspace and verify it can read the repo instructions.
+4. Confirm that `/status`, `/agent`, `/mode`, `/new`, and `/help` respond before trusting it.
+
+## Common commands
+
+| Command | Meaning |
+|---|---|
+| `/status` | Show bridge health, active agent, mode, and session state. |
+| `/agent` | Show the current agent preference and fallback order. |
+| `/agent auto` | Use the configured priority and fall back when an agent is unavailable. |
+| `/agent codex` · `/agent claude` | Pin one agent and disable automatic fallback. |
+| `/new` | Start fresh sessions and clear old conversation state. |
+| `/mode` | Show the current trading mode. |
+| `/mode manual` | Require explicit confirmation for each order. |
+| `/mode semi` | Propose numbered tickets and wait for approval. |
+| `/mode full` | Allow the opt-in autonomous mode, still bound by the desk gates. |
+| `/help` | List the supported commands. |
+
+Everything else should behave like normal desk conversation.
+
+## Safety notes
+
+- Do not publish secrets, account identifiers, or live session IDs.
+- Keep agent priority configurable; do not hardcode a private personal order into the public docs.
+- If the bridge changes the public/private boundary, update [docs/open-source-boundary.md](open-source-boundary.md) in the same change.

@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# PII gate (local) — blocks a COMMIT that stages PII/credentials.
-# Only enforced on public branches, so your private branch (main) is never blocked.
+# Gate (local) — blocks a COMMIT that stages PII, credentials, or private knowledge.
 set -e
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 case "$branch" in
-  opensource|public|oss|release)
+  main|opensource|public|oss|release)
+    flags="--staged"; [ -n "${ALLOW_PERSONAL:-}" ] && flags="$flags --allow-knowledge"
     echo "🔒 scan_pii: checking staged changes on public branch '$branch'…"
-    if ! python3 scripts/scan_pii.py --staged; then
-      echo "✋ commit blocked — resolve the findings above, or move the value into"
-      echo "   config.local.toml / .env (git-ignored). To bypass once: git commit --no-verify"
+    if ! python3 scripts/ops/scan_pii.py $flags; then
+      echo "✋ commit blocked. PII → move to config.local.toml / .env. Personal knowledge you"
+      echo "   deliberately want public → re-run: ALLOW_PERSONAL=1 git commit …"
       exit 1
     fi
     ;;
-  *) : ;;  # private branches are not gated
+  *)
+    if ! python3 scripts/ops/scan_pii.py --staged --accounts-only; then
+      echo "✋ commit blocked: unmasked account identifier. Mask it before committing."
+      exit 1
+    fi
+    ;;
 esac
-

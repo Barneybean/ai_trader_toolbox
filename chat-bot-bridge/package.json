@@ -1,0 +1,19 @@
+{
+  "name": "chat-bot-bridge",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider-neutral Telegram, Discord, and WhatsApp bridge for the trading desk",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "service:install": "./service-control.sh install",
+    "service:uninstall": "./service-control.sh uninstall",
+    "service:restart": "./service-control.sh restart",
+    "service:status": "./service-control.sh status",
+    "schedule:install": "! grep -q YOUR_NAME com.example.desk-premarket.plist && ! grep -q YOUR_NAME com.example.desk-postmarket.plist && cp com.example.desk-premarket.plist com.example.desk-postmarket.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.example.desk-premarket.plist ~/Library/LaunchAgents/com.example.desk-postmarket.plist && echo 'example weekday schedules loaded; confirm the times match your timezone and workflow'",
+    "schedule:uninstall": "launchctl unload ~/Library/LaunchAgents/com.example.desk-premarket.plist ~/Library/LaunchAgents/com.example.desk-postmarket.plist; rm -f ~/Library/LaunchAgents/com.example.desk-premarket.plist ~/Library/LaunchAgents/com.example.desk-postmarket.plist && echo 'scheduled runs removed'",
+    "tunnel:install": "cp com.example.chat-bot-tunnel.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.example.chat-bot-tunnel.plist && echo 'tunnel service loaded (webhook mode only)'",
+    "tunnel:uninstall": "launchctl unload ~/Library/LaunchAgents/com.example.chat-bot-tunnel.plist; rm -f ~/Library/LaunchAgents/com.example.chat-bot-tunnel.plist && echo 'tunnel removed'"
+  }
+}

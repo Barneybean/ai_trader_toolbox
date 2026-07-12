@@ -1,11 +1,11 @@
 # Quant Analysis — Levels, Indicators, and Edge Math
 
-The Quant playbook: turn `scripts/indicators.py` output into a defensible read of **support
+The Quant playbook: turn `scripts/analysis/indicators.py` output into a defensible read of **support
 (floor)** and **resistance (upper "pressure")**, then a numeric edge the CIO gate can trust.
 Replace "looks bullish" with levels, vol-scaled risk, and a reward:risk number.
 
 Run the script first — never eyeball. Feed ~1yr of daily bars:
-`python3 scripts/indicators.py <historicals.json> --price <live quote>`. Pass `--price` when
+`python3 scripts/analysis/indicators.py <historicals.json> --price <live quote>`. Pass `--price` when
 open so the S/R map centers on current price, not yesterday's close.
 
 ---

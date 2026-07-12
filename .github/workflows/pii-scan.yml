@@ -4,9 +4,9 @@ name: PII / credential gate
 # so PII can't reach the open-source branch even if a local hook is skipped or not installed.
 on:
   push:
-    branches: [opensource, public, release]
+    branches: [main, opensource, public, release]
   pull_request:
-    branches: [opensource, public, release]
+    branches: [main, opensource, public, release]
 
 jobs:
   scan-pii:
@@ -17,5 +17,4 @@ jobs:
         with:
           python-version: "3.x"
       - name: Scan tracked files for PII / credentials
-        run: python3 scripts/scan_pii.py
-
+        run: python3 scripts/ops/scan_pii.py

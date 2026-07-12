@@ -98,7 +98,7 @@ Four ways to use it:
 - **Agent recommends → you approve → broker places.**
 - Nothing is bought or sold without your confirmation.
 - [See it in action](#robinhood-connect-your-ai-agent-agentic-trading) — a screenshot of
-  agent-placed orders resting in a real Robinhood agentic account.
+  mode-authorized orders resting in the user's explicitly configured execution account.
 
 **4. Learning**
 - Log ideas, vetoes, plans, and outcomes.
@@ -259,7 +259,7 @@ questions behave the same way.
 | `/mode` | Show the current trading mode. |
 | `/mode manual` | Require confirmation for each exact order—the execution kill switch. |
 | `/mode semi` | Propose numbered tickets; execute only the tickets you approve. |
-| `/mode full` | Explicitly allow playbook-gated execution in the agentic account; every order/fill is reported. |
+| `/mode full` | Explicitly allow playbook-gated execution in the configured execution account; every order/fill is reported. |
 | `/help` | Show the available phone commands. |
 
 Everything else is normal conversation. For example: `Run a daily report`, `Analyze META`,
@@ -316,17 +316,18 @@ Any terminal agent that reads repository instructions and runs local commands ca
 #### Fewer permission prompts (optional)
 
 ```bash
-# Codex: start normally, then enter /permissions and select Full Access
+# Codex: start normally and approve only this workspace plus required commands
 codex
 
-# Claude: pre-approve routine file tools
+# Claude: pre-approve routine repository file tools
 claude --permission-mode acceptEdits \
   --allowedTools "Read" "Edit" "Write" "Glob" "Grep"
 ```
 
-In Codex, enter `/permissions` and select **Full Access**. In Claude, use `/permissions` to
-approve other recurring tools. Avoid unrestricted permission bypass while a live broker is
-connected. Check current flags with `codex --help` or `claude --help`.
+Prefer repository-scoped file access and a small allowlist of recurring commands. Grant broader
+access only when a concrete setup step needs it and you understand the effect. Never use
+unrestricted approval bypass while a live broker is connected. Check current options with the
+agent's built-in help.
 
 ### 3. Feed this README to the agent
 
@@ -362,7 +363,7 @@ supply (see *Portability & capability detection* in `SKILL.md`).
 ### Full-potential checklist
 
 - [ ] A terminal coding agent can read `README.md`, `AGENTS.md`, and `SKILL.md` and run Python.
-- [ ] `config.local.toml` and any `.env` values exist only locally and remain git-ignored.
+- [ ] `config.local.toml` and the optional bridge's `chat-bot-bridge/.env` exist only locally and remain git-ignored.
 - [ ] Privacy hooks are installed and `python3 scripts/ops/scan_pii.py` passes.
 - [ ] A supported broker is connected for live portfolio data and confirmed execution, or the
       documented web/manual-data fallback is understood.
@@ -408,11 +409,11 @@ Ask your terminal agent in plain language:
 2. `Run a complete report on AI robotics opportunities.`
 3. `Run a full analysis on META.`
 4. `Schedule a complete daily report before the market opens each trading day.`
-5. `Switch to full-auto mode for my Robinhood agentic account.`
+5. `Switch to full-auto mode for my configured execution account.`
 
 Reports and analyses always use the full decision-grade pipeline. The normal flow is **report →
 user review → approve exact tickets → AI previews and executes only those tickets → report and log
-fills.** Full-auto is an explicit opt-in for the agentic account only; it operates within the same
+fills.** Full-auto is an explicit opt-in for the configured execution account only; it operates within the same
 risk and sufficiency gates, reports every order/fill, and can be stopped immediately with
 `/mode manual`.
 
@@ -441,7 +442,7 @@ Connect a broker for live data, portfolio context, and confirmed execution.
 
 | Broker | Status | Notes |
 |---|---|---|
-| **Robinhood** | ✅ working (via connector) | Quotes, historicals, fundamentals, positions, confirm-before-order execution. |
+| **Robinhood** | ✅ working (via connector) | Quotes, historicals, fundamentals, positions, previews, and mode-gated execution. |
 | **Interactive Brokers** | 🔌 planned | Adapter interface + config slot ship now; implementation welcome. |
 | **Futu / moomoo** | 🔌 planned | Same. |
 
@@ -471,7 +472,7 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 The repo protects private data with three layers:
 
-- **Secrets live only in git-ignored files** — `config.local.toml`, `.env`, `skills/private/`.
+- **Secrets live only in git-ignored files** — `config.local.toml`, `chat-bot-bridge/.env`, and private overlays under `skills/private/`.
 - **A scanner** — [`scripts/ops/scan_pii.py`](scripts/ops/scan_pii.py) — flags account numbers, keys,
   connector UUIDs, and personal identifiers in tracked files.
 - **Three gates** — pre-commit, pre-push, and
@@ -493,7 +494,7 @@ The roadmap shows what works, what is in progress, and where help matters.
 
 | Status | Area | Outcome | Help wanted |
 |---|---|---|---|
-| ✅ Available | Auditable desk foundation | Multi-lens research, debate, risk gates, bilingual HTML reports, confirm-before-order execution, privacy checks, and outcome journaling | Tests, documentation, playbooks, and independent review |
+| ✅ Available | Auditable desk foundation | Multi-lens research, debate, risk gates, bilingual HTML reports, mode-gated execution, privacy checks, and outcome journaling | Tests, documentation, playbooks, and independent review |
 | 🚧 WIP | Historical learning and continuity | Efficient recall of prior analyses, trades, methods, decisions, and outcomes during every relevant run | Retrieval evaluation, schemas, deduplication, and long-history benchmarks |
 | 🚧 WIP | Reliability and portability | Observable engine runs, consistent setup across terminal agents, safer publishing, and clearer degraded-mode behavior | Cross-platform tests, fixtures, and installation diagnostics |
 | 🎯 Next | Financial-report analysis | Deeper reusable skills for 10-K/10-Q/8-K, earnings releases, footnotes, guidance changes, segment economics, cash-flow quality, and transcript contradictions | Accounting expertise, filing fixtures, citation tests, and sector-specific rubrics |
@@ -523,6 +524,19 @@ failure modes, and tests. Run `python3 scripts/ops/scan_pii.py` before pushing. 
 updates also trigger `python3 scripts/ops/smoke_test.py` from the git hooks, which asks for human
 review before the push leaves the machine. Follow
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+### Bringing improvements from another desk, fork, or branch
+
+Do not copy the source tree into this repository. Start with the read-only audit:
+
+```bash
+python3 scripts/ops/sync_audit.py --source /path/to/source
+```
+
+It classifies reusable candidates, sanitization-required files, public assets to preserve, and
+private/runtime state that must never cross. It also detects shared-remote risk, obsolete directory
+aliases, unsafe defaults, populated secret templates, and local denylist terms. Follow the canonical
+[open-source boundary and sync policy](docs/open-source-boundary.md); the tool never copies or publishes files.
 
 ---
 

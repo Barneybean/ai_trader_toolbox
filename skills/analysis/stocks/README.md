@@ -24,7 +24,7 @@ position and doesn't belong in the commons. Keep live theses in
 3. Meet the same quality bar as sector playbooks
    ([`CONTRIBUTING.md`](../../../CONTRIBUTING.md#the-playbook-quality-bar)): **specific ·
    falsifiable · primary-sourced · dated · illustrated · general** — episodes must be dated
-   history, and `python3 scripts/scan_pii.py` must pass.
+   history, and `python3 scripts/ops/scan_pii.py` must pass.
 
 Names with rich, repeating structure work best: NVDA, TSLA, INTC, AAPL, AMD, META, COIN, MU —
 anywhere the same pattern has shown up more than once.

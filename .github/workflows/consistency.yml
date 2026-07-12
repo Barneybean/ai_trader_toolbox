@@ -5,9 +5,9 @@ name: Consistency gate
 # filenames. Word-budget and engine-registration findings are warnings for the reviewer.
 on:
   push:
-    branches: [opensource, public, release]
+    branches: [main, opensource, public, release]
   pull_request:
-    branches: [opensource, public, release]
+    branches: [main, opensource, public, release]
 
 jobs:
   check-consistency:
@@ -18,4 +18,4 @@ jobs:
         with:
           python-version: "3.x"
       - name: Check the contribution doesn't conflict with the toolkit
-        run: python3 scripts/check_consistency.py
+        run: python3 scripts/ops/check_consistency.py

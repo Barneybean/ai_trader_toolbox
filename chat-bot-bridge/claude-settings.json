@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "TodoWrite",
+      "Task",
+      "WebSearch",
+      "WebFetch",
+      "mcp__robinhood"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(./chat-bot-bridge/.env)",
+      "Bash(rm -rf:*)"
+    ]
+  }
+}

@@ -14,8 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Root-anchored packaging artifacts; scripts/lib/ is toolkit source.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -239,12 +240,26 @@ journal/action-levels.jsonl
 journal/insights.jsonl
 journal/mentor-book.json
 journal/toolkit.jsonl
-reports/.build/
+# All user journal state is private; keep only its public explanation.
+journal/*
+!journal/README.md
 reports/*.html
-!reports/report_2026-07-05_sample-ai-robotics-value-chain_claude-fable-5.html
+!reports/examples/sample-report.html
 reports/*.md
-reports/charts/*.svg
+reports/archive/
+reports/assets/
 
-# Local PII denylist (your exact private strings) — never commit
+# Build intermediates and fetched data are regenerable runtime state.
+reports/.build/
+reports/cache/
+
+# Local denylists contain the user's exact private strings and knowledge markers.
+scripts/ops/pii_denylist.local.txt
+scripts/ops/knowledge_denylist.local.txt
+# Legacy local-denylist location, retained for users upgrading from the flat layout.
 scripts/pii_denylist.local.txt
 
+# Runtime logs and bridge state can contain private prompts and execution details.
+logs/
+chat-bot-bridge/logs/
+desk-mode.json

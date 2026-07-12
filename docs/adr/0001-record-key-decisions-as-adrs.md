@@ -16,7 +16,7 @@ journal capture trading calls; nothing captured **build** decisions.
 ## Decision
 
 We will record key decisions as Architecture Decision Records in `docs/adr/`, numbered
-`NNNN-slug.md`, scaffolded by `scripts/new_adr.py` from `docs/adr/template.md`. Scope: desk
+`NNNN-slug.md`, scaffolded by `scripts/ops/new_adr.py` from `docs/adr/template.md`. Scope: desk
 method, toolkit architecture, data contracts, privacy posture, runtime/broker support.
 ADRs are immutable once accepted — course changes get a new ADR that supersedes the old one.
 The process itself is documented in `docs/adr/README.md`.

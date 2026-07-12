@@ -1,22 +1,51 @@
 #!/usr/bin/env bash
-# PII gate (local) — blocks a PUSH of a public branch if PII/credentials are in tracked files.
-# The definitive gate is CI (.github/workflows/pii-scan.yml); this catches it before it leaves.
+# Local public-release gates: privacy, consistency, and significant-change smoke review.
 set -e
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
 case "$branch" in
-  opensource|public|oss|release)
+  main|opensource|public|oss|release)
+    flags=""; [ -n "${ALLOW_PERSONAL:-}" ] && flags="--allow-knowledge"
     echo "🔒 scan_pii: scanning tracked files before pushing public branch '$branch'…"
-    if ! python3 scripts/scan_pii.py; then
-      echo "✋ push blocked — do NOT publish until the findings above are resolved."
-      echo "   (Bypass is intentionally awkward: git push --no-verify — only if you are certain.)"
-      exit 1
-    fi
-    echo "🔎 check_consistency: broken refs, unregistered playbooks, ADR integrity, word budgets…"
-    if ! python3 scripts/check_consistency.py; then
-      echo "✋ push blocked — the change conflicts with the toolkit (see CONTRIBUTING.md self-review)."
+    if ! python3 scripts/ops/scan_pii.py $flags; then
+      echo "✋ push blocked. Remove PII/secrets; publish private knowledge only after explicit review."
       exit 1
     fi
     ;;
-  *) echo "scan_pii: '$branch' is a private branch — PII gate not enforced." ;;
+  *)
+    echo "scan_pii: '$branch' is non-public — running the account-identifier tier only…"
+    if ! python3 scripts/ops/scan_pii.py --accounts-only; then
+      echo "✋ push blocked: unmasked account identifier in a tracked file."
+      exit 1
+    fi
+    ;;
 esac
 
+echo "🔎 check_consistency: links, ADR integrity, registrations, and context budgets…"
+python3 scripts/ops/check_consistency.py
+
+smoke_args=()
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "${local_ref:-}" ] && continue
+  case "$local_sha" in
+    0000000000000000000000000000000000000000) continue ;;
+  esac
+  if [ "${remote_sha:-}" = "0000000000000000000000000000000000000000" ] || [ -z "${remote_sha:-}" ]; then
+    smoke_args+=("--range" "$local_sha")
+  else
+    smoke_args+=("--range" "$remote_sha..$local_sha")
+  fi
+done
+
+if [ ${#smoke_args[@]} -gt 0 ]; then
+  echo "🧪 smoke_test: running targeted suites for significant pushed changes…"
+  if python3 scripts/ops/smoke_test.py "${smoke_args[@]}"; then
+    smoke_status=0
+  else
+    smoke_status=$?
+  fi
+  if [ "$smoke_status" -eq 3 ]; then
+    echo "✋ push blocked — review the smoke summary, then retry with SMOKE_REVIEW_OK=1."
+    exit 1
+  fi
+  [ "$smoke_status" -eq 0 ] || exit "$smoke_status"
+fi

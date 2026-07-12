@@ -42,7 +42,7 @@ This is the desk's feedback loop — it answers "which of my METHODS actually hi
    chip data. Re-running the quant tools with tweaked windows until they agree with your
    prior is the discretionary version of 70 backtests — if tools were re-run 3+ times on
    one name, add `"reruns": N` and discount confidence.
-5. **Score weekly, out-of-sample only:** `python3 scripts/score_insights.py` (add `--mark`
+5. **Score weekly, out-of-sample only:** `python3 scripts/journal/score_insights.py` (add `--mark`
    for open-position mark-to-market). Only price data after the call timestamp counts;
    "it would have worked if entered earlier" is not a hit.
 6. Confidence → size lives in the rubric, not here: the insight states the view; the

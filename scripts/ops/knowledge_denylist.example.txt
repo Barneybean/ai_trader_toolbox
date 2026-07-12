@@ -1,0 +1,13 @@
+# Personal-knowledge denylist — EXAMPLE. Copy to `scripts/knowledge_denylist.local.txt`
+# (git-ignored) and add YOUR private edge markers. On a PUBLIC branch, the gate hard-blocks any
+# tracked file containing one of these — UNLESS you deliberately override with ALLOW_PERSONAL=1.
+#
+# Put here the names/handles/terms that identify your private edge, so your playbook can't leak.
+# One string per line; '#' starts a comment. (These stay local — this .example is committed, the
+# .local copy is not — so your real markers are never published.)
+#
+# --- examples (replace with your own in the .local copy) ---
+# YourMentorHandle
+# YourMentor'sChannelName
+# YourPrivateFundOrVentureName
+# Your Full Name
