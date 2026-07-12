@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📈 AI Trader
+# 📈 AI Trader Toolbox
 
 **Turn a terminal coding agent into a disciplined research, risk, and execution desk.**
 
@@ -14,7 +14,7 @@ and returns an auditable HTML report—not a black-box prediction.*
 ![Agent](https://img.shields.io/badge/agent-Claude%20Code%20%7C%20Codex-8A2BE2)
 ![Not financial advice](https://img.shields.io/badge/⚠️-not%20financial%20advice-red)
 
-💡 [Why It Exists](#-why-ai-trader) ·
+💡 [Why It Exists](#-why-ai-trader-toolbox) ·
 🎯 [What It Does](#-what-it-does) ·
 🏛️ [The Desk](#️-the-desk) ·
 🧭 [Read This First](#-read-this-first) ·
@@ -47,7 +47,7 @@ If you want the README to work like an onboarding guide, read it in this order:
 
 | What you need | Read here | Why it matters |
 |---|---|---|
-| Tool intro | [Why It Exists](#-why-ai-trader) and [What It Does](#-what-it-does) | Explains the desk, its discipline, and the main ways to use it. |
+| Tool intro | [Why It Exists](#-why-ai-trader-toolbox) and [What It Does](#-what-it-does) | Explains the desk, its discipline, and the main ways to use it. |
 | What it can do | [The Desk](#️-the-desk) and [Sample report](#-sample-report) | Shows the operating model and the output format. |
 | Setup | [Setup](#️-setup) and [Brokers](#-broker-support) | Gets the agent, broker, and local config in place. |
 | User manual | [Use It](#-use-it) and [`docs/user-manual.md`](docs/user-manual.md) | Explains day-to-day operation, approvals, and report reading. |
@@ -56,10 +56,10 @@ If you are new, start with the intro, then do setup, then use the manual section
 
 If you are an AI agent, use this order instead: `README.md` → `AGENTS.md` → `SKILL.md`.
 
-## 💡 Why AI Trader?
+## 💡 Why AI Trader Toolbox?
 
 Markets produce more information than one person can consistently process. A single AI answer can
-be fast but overconfident. AI Trader gives your coding agent a repeatable process:
+be fast but overconfident. AI Trader Toolbox gives your coding agent a repeatable process:
 
 - **Better decisions, not more predictions.** Every actionable idea needs evidence, a bear case,
   valuation, invalidation, position sizing, and a minimum reward-to-risk threshold.
@@ -114,7 +114,7 @@ it, and a CIO gate passes only the strongest ideas. No role grades its own work.
 <div align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/desk-flow-dark.svg">
-  <img src="docs/desk-flow.svg" width="820" alt="AI Trader pipeline: your coding agent orchestrates the desk — macro/regime, thematic wave, quant/chip engine, and the analyst team feed a research debate and risk committee; the CIO gate passes only high-edge ideas into a report, which you approve before the broker places any order; lessons are logged and recalled on the next run.">
+  <img src="docs/desk-flow.svg" width="820" alt="AI Trader Toolbox pipeline: your coding agent orchestrates the desk — macro/regime, thematic wave, quant/chip engine, and the analyst team feed a research debate and risk committee; the CIO gate passes only high-edge ideas into a report, which you approve before the broker places any order; lessons are logged and recalled on the next run.">
 </picture>
 </div>
 
@@ -513,7 +513,7 @@ this work, please also credit theirs:
 
 ## ⚖️ Disclaimer & License
 
-AI Trader is for **research and education only** and is **not financial or tax advice**. By
+AI Trader Toolbox is for **research and education only** and is **not financial or tax advice**. By
 default it does not auto-trade — you approve and place every order. If you modify it to automate
 execution, you do so at your own risk and own every outcome. Past performance and backtests do
 not guarantee future results.
