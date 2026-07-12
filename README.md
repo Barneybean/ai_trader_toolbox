@@ -17,10 +17,11 @@ and returns an auditable HTML report—not a black-box prediction.*
 💡 [Why It Exists](#-why-ai-trader) ·
 🎯 [What It Does](#-what-it-does) ·
 🏛️ [The Desk](#️-the-desk) ·
+🧭 [Read This First](#-read-this-first) ·
 🌍 [Knowledge Commons](#-the-knowledge-commons) ·
 📄 [Sample](#-sample-report) ·
 ✅ [Why Trust It](#-why-trust-the-process) ·
-⚙️ [Setup](#️-setup) ·
+⚙️ [Quickstart](#-quickstart) ·
 📖 [Use It](#-use-it) ·
 🧩 [Make It Yours](#-make-it-yours) ·
 🔌 [Brokers](#-broker-support) ·
@@ -39,6 +40,21 @@ and returns an auditable HTML report—not a black-box prediction.*
 > terminal agent (see [Brokers](#-broker-support)).
 
 ---
+
+## 🧭 Read This First
+
+If you want the README to work like an onboarding guide, read it in this order:
+
+| What you need | Read here | Why it matters |
+|---|---|---|
+| Tool intro | [Why It Exists](#-why-ai-trader) and [What It Does](#-what-it-does) | Explains the desk, its discipline, and the main ways to use it. |
+| What it can do | [The Desk](#️-the-desk) and [Sample report](#-sample-report) | Shows the operating model and the output format. |
+| Setup | [Setup](#️-setup) and [Brokers](#-broker-support) | Gets the agent, broker, and local config in place. |
+| User manual | [Use It](#-use-it) and [`docs/user-manual.md`](docs/user-manual.md) | Explains day-to-day operation, approvals, and report reading. |
+
+If you are new, start with the intro, then do setup, then use the manual section when you are ready to run it.
+
+If you are an AI agent, use this order instead: `README.md` → `AGENTS.md` → `SKILL.md`.
 
 ## 💡 Why AI Trader?
 
@@ -164,6 +180,9 @@ See what a run produces:
 Open it in a browser, or view without cloning via a raw-HTML previewer (prepend
 `https://htmlpreview.github.io/?` to the file's GitHub URL).
 
+The sample is the fastest way to learn how to read a report. It opens with the call, then the
+decision cards and trade plan, and then the evidence trail behind it.
+
 It opens with the call — what to do, in one screen:
 
 <p align="center">
@@ -212,7 +231,7 @@ It opens with the call — what to do, in one screen:
 
 </details>
 
-The format is **Summary → Action → Evidence**, with plain-language callouts, charts, two time
+The format is **Summary → Action → Breakdown**, with plain-language callouts, charts, two time
 horizons, and a sized trade plan.
 
 > Illustrative only — a demo of the output format on a fictional $2,000 account, not investment
@@ -240,87 +259,77 @@ out-of-sample record earn trust.
 
 ---
 
-## ⚙️ Setup
+## ⚡ Quickstart
 
-Use the AI coding agent in your local IDE terminal as the installer. Clone the repo, start the
-agent, and give it the prompt below. Never paste secrets into chat.
+> **Easiest path: hand this README to your AI agent.** Share this file (and
+> [`SKILL.md`](SKILL.md)) with your CLI agent — Claude Code or Codex — and say *"read this and set
+> it up, then run a desk run for me."* The toolkit is designed to be operated by an agent reading
+> these docs: it can install the PII gate, wire your config, connect the broker, and run the desk
+> end to end. The steps below are the same thing done by hand.
 
-### 1. Clone and enter the repository
+Four steps, start to finish — no prior coding-agent experience required.
 
-```bash
-git clone https://github.com/Barneybean/ai_trader_toolbox.git
-cd ai_trader_toolbox
-```
+### 1. Install a text editor
 
-### 2. Start a compatible coding agent in the same terminal
+You'll use this to open the repo and glance at config files. **VS Code** is a solid free default:
+➡️ **[code.visualstudio.com/download](https://code.visualstudio.com/download)**
 
-```bash
-codex
-# or
-claude
-```
+### 2. Install a CLI coding agent (Claude Code or Codex)
 
-Any terminal agent that reads repository instructions and runs local commands can work.
-[`SKILL.md`](SKILL.md) is the charter; [`AGENTS.md`](AGENTS.md) routes compatible agents to it.
-
-### 3. Feed this README to the agent
-
-Paste this request into the terminal agent:
-
-```text
-Read README.md, AGENTS.md, and SKILL.md completely. Set up this AI trading toolbox from this
-terminal. Detect what is already installed; create only the required git-ignored local
-configuration; install and verify the privacy hooks; explain how to connect my supported broker
-without printing secrets; run the available consistency and PII checks; then run a safe
-analysis-only smoke test. Do not place any order. Tell me exactly what still needs my input.
-```
-
-The repository tells the agent how to detect capabilities, use fallbacks, protect privacy, and
-stop before broker actions.
-
-### 4. Connect market data and broker capabilities when prompted
-
-Robinhood's agentic-trading connector is currently the working broker integration. Complete its
-official connection flow from your terminal agent when it asks:
-
-➡️ **[Robinhood — Agentic Trading Overview → Connect your AI agent](https://robinhood.com/us/en/support/articles/agentic-trading-overview/#ConnectyourAIagent)**
-
-The agent should verify market data, portfolio data, and an order **preview**. It must not place
-an order without your confirmation of that exact ticket.
-
-### Manual terminal setup (fallback)
-
-If the agent cannot complete a step, use these minimal commands:
+The desk is *operated* by a CLI coding agent — it reads the skill files and runs the pipeline. You
+need a **Claude Pro/Max** (for Claude Code) or equivalent **Codex/ChatGPT** subscription.
 
 ```bash
-cp config.example.toml config.local.toml
-cp .env.example .env                       # only for an API-key feature you enable
-bash scripts/install_hooks.sh
-python3 scripts/scan_pii.py
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-For runtime-specific wiring and capability detection, see [`PORTABILITY.md`](PORTABILITY.md).
+That installs **Claude Code**. If you'd rather use **Codex**, follow OpenAI's CLI install
+instructions instead — either works, since the repo ships both [`SKILL.md`](SKILL.md) (Claude
+Code) and [`AGENTS.md`](AGENTS.md) (Codex / any AGENTS.md agent).
+
+> **Use the CLI, not a desktop app.** Desktop apps run in a restricted sandbox that often blocks
+> broker connectors, scripts, and order placement. The CLI can run the engines, hold the broker
+> connection, and place confirmed orders end to end.
+
+### 3. Connect your Robinhood agentic-trading account
+
+Do this from the CLI agent you just installed, not a browser-only flow — follow Robinhood's setup
+guide:
+➡️ **[robinhood.com/us/en/agentic-trading](https://robinhood.com/us/en/agentic-trading/)**
+
+This is what lets the agent pull your quotes, historicals, fundamentals, positions, and buying
+power, and place orders (with your confirmation) later on.
+
+### 4. Open the CLI and ask the agent to set up the toolbox
+
+```bash
+git clone <your-fork-url> ai-trader && cd ai-trader
+cp config.example.toml config.local.toml # add your broker/account (git-ignored)
+cp .env.example .env # only if you use an API-key feature
+bash scripts/install_hooks.sh # install the PII gate (recommended)
+claude # or: codex
+```
+
+Then point your agent at the skill and ask for a run:
+
+- **Claude Code** — the repo's [`SKILL.md`](SKILL.md) *is* the skill.
+- **Codex / any AGENTS.md agent** — [`AGENTS.md`](AGENTS.md) routes it in.
+- See [`PORTABILITY.md`](PORTABILITY.md) to wire every runtime to one source folder.
+
+> *"Read this repo's README.md and SKILL.md, set yourself up, and run a desk run for me."*
+
+> **Use a CLI agent (Claude Code or Codex), not a desktop app.** Desktop apps run in a
+> restricted sandbox that often blocks broker connectors, scripts, and order placement. The CLI
+> can run the engines, hold the broker connection, and place confirmed orders end to end.
+
+The agent takes it from there — it can create `config.local.toml` and `.env` from the `.example`
+files, install the PII gate, wire in the broker account from step 3, and run the desk end to end.
+If you'd rather do that setup by hand first, see [`SKILL.md`](SKILL.md) and
+[`PORTABILITY.md`](PORTABILITY.md).
 
 The desk pulls data, runs the pipeline, and returns a ranked, risk-checked report — or an honest
 "nothing clears the bar." No broker connector? It falls back to web data + a historicals JSON you
 supply (see *Portability & capability detection* in `SKILL.md`).
-
-### Use the engines standalone (no agent)
-
-```bash
-# Indicators + S/R map + chip distribution:
-python3 scripts/indicators.py path/to/historicals.json --price 128.40 --float 4100000000
-
-# The learning journal:
-python3 scripts/track_record.py recall --symbol NVDA
-python3 scripts/track_record.py report            # win rate + avg alpha + recent lessons
-
-# Toolkit activity log (debugging + reliability — see docs/adr/):
-python3 scripts/desk_log.py run -- python3 scripts/indicators.py path/to/historicals.json
-python3 scripts/desk_log.py stats                 # per-script runs, error rate, p50/p95 ms
-```
-
-Pure Python standard library — no dependencies, runs anywhere `python3` does.
 
 ---
 
