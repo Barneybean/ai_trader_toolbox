@@ -4,8 +4,12 @@ import {
   availabilityFailure,
   brokerRequestKind,
   codexAvailabilityError,
+  createManualAgentChoice,
+  formatManualAgentChoiceForPhone,
+  implicitManualAgentChoice,
   preferredAgentOrder,
   prioritizeBrokerAgent,
+  resolveManualAgentChoice,
 } from './agent-routing.js';
 
 test('classifies explicit execution and live-status requests', () => {
@@ -29,6 +33,58 @@ test('agent choice sets the default while retaining available alternatives', () 
   assert.deepEqual(preferredAgentOrder('codex', ['codex', 'claude']), ['codex', 'claude']);
   assert.deepEqual(preferredAgentOrder('claude', ['codex', 'claude']), ['claude', 'codex']);
   assert.deepEqual(preferredAgentOrder('auto', ['codex', 'claude']), ['codex', 'claude']);
+});
+
+test('manual agent picker supports numbered, named, and short-lived bare replies', () => {
+  const pending = createManualAgentChoice({
+    agents: ['codex', 'claude'], current: 'codex',
+    models: { codex: 'gpt-test', claude: 'sonnet-test' }, nowMs: 1_000, ttlMs: 300_000,
+    modelChoices: {
+      codex: [
+        { model: 'gpt-test', availability: 'available' },
+        { model: 'gpt-next', availability: 'unavailable', detail: 'rate limited' },
+        'gpt-third', 'gpt-fourth', 'gpt-fifth',
+      ],
+      claude: ['sonnet-test', 'opus-test'],
+    },
+  });
+  const phone = formatManualAgentChoiceForPhone(pending);
+  assert.match(phone, /Codex \(current\)/);
+  assert.match(phone, /1\. gpt-test — available · default/);
+  assert.match(phone, /2\. gpt-next — unavailable · rate limited/);
+  assert.match(phone, /Claude/);
+  assert.match(phone, /5\. sonnet-test — available/);
+  assert.doesNotMatch(phone, /gpt-fifth/);
+  assert.deepEqual(resolveManualAgentChoice(pending, '/agent 2', 2_000), {
+    agent: 'codex', agentLabel: 'Codex', model: 'gpt-next', label: 'gpt-next',
+    availability: 'unavailable', detail: 'rate limited', current: false, explicitModel: true,
+  });
+  assert.deepEqual(resolveManualAgentChoice(pending, 'codex', 2_000), {
+    agent: 'codex', agentLabel: 'Codex', model: 'gpt-test', label: 'gpt-test', explicitModel: false,
+  });
+  assert.equal(resolveManualAgentChoice(pending, '1', 302_000), null);
+  assert.deepEqual(implicitManualAgentChoice({ pendingAgentChoice: pending }, '5', 2_000), {
+    agent: 'claude', agentLabel: 'Claude', model: 'sonnet-test', label: 'sonnet-test',
+    availability: 'available', current: false, explicitModel: true,
+  });
+  assert.equal(implicitManualAgentChoice({ pendingAgentChoice: pending, pendingModelSwitch: {} }, '2', 2_000), null);
+  assert.equal(implicitManualAgentChoice({ pendingAgentChoice: pending, pendingDecision: {} }, '2', 2_000), null);
+});
+
+test('manual picker keeps its model-numbering contract for a future registered agent', () => {
+  const pending = createManualAgentChoice({
+    agents: ['codex', 'local-runner'], current: 'local-runner',
+    models: { codex: 'gpt-test', 'local-runner': 'local-fast' },
+    modelChoices: { codex: ['gpt-test'], 'local-runner': ['local-fast', 'local-deep'] },
+    nowMs: 1_000,
+  });
+  const phone = formatManualAgentChoiceForPhone(pending);
+  assert.match(phone, /Local Runner \(current\)/);
+  assert.match(phone, /2\. local-fast — available · default/);
+  assert.deepEqual(resolveManualAgentChoice(pending, '3', 2_000), {
+    agent: 'local-runner', agentLabel: 'Local Runner', model: 'local-deep', label: 'local-deep',
+    availability: 'available', current: false, explicitModel: true,
+  });
 });
 
 test('recognizes synthetic usage-limit replies as fallback eligible', () => {

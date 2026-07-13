@@ -35,6 +35,122 @@ export function preferredAgentOrder(preferred, available = ['codex', 'claude']) 
   return [first, ...unique.filter((name) => name !== first)];
 }
 
+function agentDisplayName(agent) {
+  if (agent === 'codex') return 'Codex';
+  if (agent === 'claude') return 'Claude';
+  return String(agent || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export function createManualAgentChoice({
+  agents = [], current = null, models = {}, modelChoices = {}, nowMs = Date.now(), ttlMs = 5 * 60_000,
+} = {}) {
+  const choices = [...new Set(agents.map((agent) => String(agent || '').trim()).filter(Boolean))]
+    .map((agent) => ({
+      agent,
+      label: agentDisplayName(agent),
+      model: String(models[agent] || ''),
+      models: (Array.isArray(modelChoices[agent]) ? modelChoices[agent] : [])
+        .slice(0, 4)
+        .map((item) => typeof item === 'string'
+          ? { model: item, label: item, availability: 'available' }
+          : {
+              model: String(item?.model || ''),
+              label: String(item?.label || item?.model || ''),
+              availability: String(item?.availability || 'available'),
+              ...(item?.detail ? { detail: String(item.detail) } : {}),
+            })
+        .filter((item) => item.model),
+      current: agent === current,
+    }));
+  // Keep the grouped view for phone readability, but give every visible
+  // model its own stable number.  A phone user is choosing an exact runtime,
+  // not merely a provider heading.
+  const modelOptions = choices.flatMap((choice) => (choice.models.length
+    ? choice.models
+    : [{ model: choice.model, label: choice.model || 'No model catalog', availability: 'unknown' }])
+    .filter((model) => model.model)
+    .map((model) => ({
+      agent: choice.agent,
+      agentLabel: choice.label,
+      model: model.model,
+      label: model.label,
+      availability: model.availability,
+      ...(model.detail ? { detail: model.detail } : {}),
+      current: choice.current && model.model === choice.model,
+    })));
+  return {
+    choices,
+    modelOptions,
+    current,
+    requestedAt: new Date(nowMs).toISOString(),
+    expiresAtMs: nowMs + Math.max(30_000, Number(ttlMs) || 5 * 60_000),
+  };
+}
+
+function manualModelOptions(pending) {
+  if (Array.isArray(pending?.modelOptions) && pending.modelOptions.length) return pending.modelOptions;
+  const choices = Array.isArray(pending?.choices) ? pending.choices : [];
+  return choices.flatMap((choice) => (choice.models || [])
+    .filter((model) => model?.model)
+    .map((model) => ({
+      agent: choice.agent,
+      agentLabel: choice.label,
+      model: model.model,
+      label: model.label || model.model,
+      availability: model.availability || 'available',
+      ...(model.detail ? { detail: model.detail } : {}),
+      current: choice.current && model.model === choice.model,
+    })));
+}
+
+export function formatManualAgentChoiceForPhone(pending) {
+  const choices = Array.isArray(pending?.choices) ? pending.choices : [];
+  const modelOptions = manualModelOptions(pending);
+  let number = 0;
+  const rows = choices.flatMap((choice) => {
+    const heading = `${choice.label}${choice.current ? ' (current)' : ''}`;
+    const models = (choice.models || []).map((model) => {
+      const option = modelOptions.find((item) => item.agent === choice.agent && item.model === model.model);
+      const itemNumber = option ? modelOptions.indexOf(option) + 1 : ++number;
+      const isDefault = choice.current && choice.model && model.model === choice.model;
+      return `${itemNumber}. ${model.label} — ${model.availability}${isDefault ? ' · default' : ''}${model.detail ? ` · ${model.detail}` : ''}`;
+    });
+    return [heading, ...(models.length ? models : [`${++number}. ${choice.model || 'No model catalog'} — availability unknown`])];
+  });
+  return [
+    'Select the default agent and model',
+    ...rows,
+    modelOptions.length ? `Reply /agent 1-${modelOptions.length}, /agent codex|claude, or a bare number within 5 minutes.` : 'No configured agents are available.',
+    'This changes future runs only. Automatic availability switching remains enabled.',
+  ].join('\n');
+}
+
+export function resolveManualAgentChoice(pending, answer, nowMs = Date.now()) {
+  if (!pending || nowMs > Number(pending.expiresAtMs || 0)) return null;
+  const choices = Array.isArray(pending.choices) ? pending.choices : [];
+  const modelOptions = manualModelOptions(pending);
+  const value = String(answer || '').trim().toLowerCase().replace(/^\/agent\s+/, '');
+  const number = Number(value);
+  if (Number.isInteger(number)) {
+    const choice = modelOptions[number - 1];
+    return choice ? { ...choice, explicitModel: true } : null;
+  }
+  const agent = choices.find((choice) => choice.agent === value);
+  return agent ? {
+    agent: agent.agent,
+    agentLabel: agent.label,
+    model: agent.model,
+    label: agent.model,
+    explicitModel: false,
+  } : null;
+}
+
+export function implicitManualAgentChoice(state, text, nowMs = Date.now()) {
+  if (!/^\d+$/.test(String(text || '').trim())) return null;
+  if (state?.pendingModelSwitch || state?.pendingDecision) return null;
+  return resolveManualAgentChoice(state?.pendingAgentChoice, text, nowMs);
+}
+
 export function availabilityFailure(text) {
   return CODEX_UNAVAILABLE_RE.test(String(text || ''));
 }

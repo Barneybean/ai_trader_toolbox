@@ -1,6 +1,6 @@
 // Side-effect-free model catalog and phone-choice helpers.
 
-export const DEFAULT_CLAUDE_MODELS = ['fable', 'opus', 'sonnet'];
+export const DEFAULT_CLAUDE_MODELS = ['fable', 'opus', 'sonnet', 'haiku'];
 
 export function shouldAutoModelFallback(mode, explicitlyRequested = false) {
   return explicitlyRequested === true || String(mode || '').toLowerCase() === 'full';

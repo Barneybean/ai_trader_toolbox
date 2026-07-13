@@ -42,9 +42,9 @@ The public docs expose the same command surface as the phone bridge.
 | Command | What it does |
 |---|---|
 | `/status` | Show bridge health, active agent, mode, and session state. |
-| `/agent` | Show the current agent preference and fallback order. |
-| `/agent auto` | Use the configured priority and fall back when an agent is unavailable. |
-| `/agent codex` · `/agent claude` | Pin one agent and disable automatic fallback. |
+| `/agent` | Open a numbered picker of configured agent/model pairs — up to four models each with passive availability; every pair has its own number. |
+| `/agent N` (or a bare `N` within five minutes) | Select that exact default agent and model for future runs. |
+| `/agent codex` · `/agent claude` | Open that agent's focused model picker. Manual selection changes future runs only — it does not interrupt the active turn or disable automatic availability switching. |
 | `/new` | Start fresh sessions and clear old conversation state. |
 | `/mode` | Show the current trading mode. |
 | `/mode manual` | Require explicit confirmation for each order. |

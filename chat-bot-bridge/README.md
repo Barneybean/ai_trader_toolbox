@@ -140,10 +140,17 @@ Send normal requests such as `run the alerts sweep`, `analyze SYM`, or `run toda
 An order request still follows the active trading mode and exact-ticket confirmation rules.
 
 Bridge commands: `/new` (fresh sessions for every agent), `/status` (active run or bridge health),
-`/mode` (view/set trading mode), `/agent` (view/set default agent), `/stop` (interrupt the active
+`/mode` (view/set trading mode), `/agent` (numbered agent/model picker), `/stop` (interrupt the active
 turn but preserve its session), `/steer TEXT` (redirect the running turn), `/decide N` (answer a
 pending agent decision), and `/help`. Long-running requests stream a compact live run card; the
 bridge runs one prompt at a time.
+
+`/agent` opens a bridge-native numbered picker of configured agent/model pairs — up to four models
+each, with passive availability that never spends tokens to display. Reply `/agent N` or a bare
+number within five minutes to set the exact default for future runs, or `/agent codex`|`claude` for
+one agent's focused model menu. Manual selection changes future runs only: it does not interrupt the
+active turn or disable automatic availability switching, and a recent observed availability failure
+stays marked (with a reset time when known) across bridge restart and model handoff.
 
 When the agent needs a material choice mid-run it does not guess — it posts a numbered decision and
 pauses; your `/decide N` resumes that session. When a phone interaction changes repository files, the

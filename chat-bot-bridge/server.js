@@ -39,9 +39,13 @@ import {
   brokerRequestKind,
   claudeRateLimitBlocked,
   codexAvailabilityError,
+  createManualAgentChoice,
   createRunCircuitBreaker,
+  formatManualAgentChoiceForPhone,
+  implicitManualAgentChoice,
   preferredAgentOrder,
   prioritizeBrokerAgent,
+  resolveManualAgentChoice,
   shouldFallbackForBroker,
 } from './agent-routing.js';
 import { sanitizePhoneText } from './phone-output.js';
@@ -471,6 +475,13 @@ function runClaude(prompt, onEvent = () => {}, model = CLAUDE_MODEL, attachments
             const resets = resetAtMs ? ` — resets ${new Date(resetAtMs).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` : '';
             fallbackRequested = true;
             fallbackReason = `usage limit: ${ri.status}${resets}`;
+            // Write this immediately. The CLI may be terminated before it
+            // emits a final result, and /agent must still show the outage
+            // after a bridge restart or an interrupted run.
+            persistModelAvailabilityFailure('claude', model, {
+              reason: fallbackReason,
+              ...(resetAtMs ? { resetAtMs } : {}),
+            });
             reportTrouble(`Claude usage limit: ${ri.status}${resets}`);
             child.kill('SIGTERM');
           }
@@ -688,7 +699,7 @@ function currentCodexModels() {
 
 function createPendingModelSwitch(last, prompt, history, attachments = []) {
   const failedAgent = last.agent === 'claude' ? 'claude' : 'codex';
-  const failedModel = last.model || (failedAgent === 'claude' ? CLAUDE_MODEL : CODEX_MODEL);
+  const failedModel = last.model || selectedDefaultModel(failedAgent);
   const choiceSet = buildModelChoiceSet({
     failedAgent,
     failedModel,
@@ -722,9 +733,9 @@ async function runAutomaticModelPlan(prompt, onEvent, attachments, preferredAgen
   const plan = buildInterleavedModelPlan({
     preferredAgent,
     defaultClaudeModel: options.preferredChoice?.agent === 'claude'
-      ? options.preferredChoice.model : CLAUDE_MODEL,
+      ? options.preferredChoice.model : selectedDefaultModel('claude'),
     defaultCodexModel: options.preferredChoice?.agent === 'codex'
-      ? options.preferredChoice.model : CODEX_MODEL,
+      ? options.preferredChoice.model : selectedDefaultModel('codex'),
     claudeModels: CLAUDE_MODEL_CANDIDATES,
     codexModels: currentCodexModels(),
     maxPerAgent: 3,
@@ -811,6 +822,13 @@ async function runAutomaticModelPlan(prompt, onEvent, attachments, preferredAgen
             ? (brokerPreflight.succeeded ? 'succeeded' : 'failed') : 'started',
         };
       }
+      if (result.ok) clearModelAvailabilityFailure(choice.agent, choice.model);
+      else if (isModelAvailabilityFailure(result)) {
+        persistModelAvailabilityFailure(choice.agent, choice.model, {
+          reason: result.switchReason || result.text,
+          ...(result.resetAtMs ? { resetAtMs: result.resetAtMs } : {}),
+        });
+      }
       return result;
     },
   });
@@ -859,7 +877,7 @@ async function runPreferredAgent(prompt, onEvent = () => {}, forcedChoice = null
     const preferredAgent = options.preferredAgent || order[0] || preference;
     const preferredChoice = effectiveChoice || {
       agent: preferredAgent,
-      model: preferredAgent === 'codex' ? CODEX_MODEL : CLAUDE_MODEL,
+      model: selectedDefaultModel(preferredAgent),
     };
     const routedPrompt = brokerKind && !options.trustedBrokerApproval
       ? brokerFirstPrompt(prompt, brokerKind, history) : prompt;
@@ -895,7 +913,7 @@ async function runPreferredAgent(prompt, onEvent = () => {}, forcedChoice = null
     const basePrompt = brokerKind && !options.trustedBrokerApproval
       ? brokerFirstPrompt(prompt, brokerKind, history) : prompt;
     const chosenModel = effectiveChoice?.agent === name
-      ? effectiveChoice.model : (name === 'codex' ? CODEX_MODEL : CLAUDE_MODEL);
+      ? effectiveChoice.model : selectedDefaultModel(name);
     last = await runner(basePrompt, onEvent, chosenModel, attachments, {
       trustedBrokerApproval: options.trustedBrokerApproval,
     });
@@ -907,6 +925,13 @@ async function runPreferredAgent(prompt, onEvent = () => {}, forcedChoice = null
         switchReason: `${agentLabel(name, last.model)} could not access live broker tools`,
         text: `${agentLabel(name, last.model)} reported that live broker tools are unavailable.`,
       };
+    }
+    if (last.ok) clearModelAvailabilityFailure(name, chosenModel);
+    else if (isModelAvailabilityFailure(last)) {
+      persistModelAvailabilityFailure(name, chosenModel, {
+        reason: last.switchReason || last.text,
+        ...(last.resetAtMs ? { resetAtMs: last.resetAtMs } : {}),
+      });
     }
     if (last.ok || !last.fallbackEligible) return last;
     const pendingModelSwitch = createPendingModelSwitch(last, prompt, history, attachments);
@@ -1519,6 +1544,86 @@ function selectedDefaultAgent() {
   return ['codex', 'claude'].includes(state.agentPreference) ? state.agentPreference : configured;
 }
 
+function selectedDefaultModel(agent = selectedDefaultAgent()) {
+  const configured = agent === 'claude' ? CLAUDE_MODEL : CODEX_MODEL;
+  const saved = state.agentModelPreferences?.[agent];
+  return typeof saved === 'string' && saved.trim() ? saved.trim() : configured;
+}
+
+// Availability is an observed fact, not a guess made while drawing /agent.
+// Keep it separately from an in-flight handoff/recovery so a restart, a
+// completed handoff, or a manual default change cannot make a known
+// rate-limited model look available again.
+function recordedAvailabilityFailures() {
+  return Array.isArray(state.modelAvailability) ? state.modelAvailability : [];
+}
+
+function retryDateStartMs(value) {
+  const day = String(value || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
+  const parsed = day ? new Date(`${day}T00:00:00`).getTime() : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function availabilityRecordIsCurrent(record, nowMs = Date.now()) {
+  if (!record) return false;
+  const resetAtMs = Number(record.resetAtMs);
+  if (Number.isFinite(resetAtMs) && resetAtMs > nowMs) return true;
+  const retryAtMs = retryDateStartMs(record.retryDate);
+  if (retryAtMs && retryAtMs > nowMs) return true;
+  const expiresAtMs = Number(record.expiresAtMs);
+  return Number.isFinite(expiresAtMs) && expiresAtMs > nowMs;
+}
+
+function persistModelAvailabilityFailure(agent, model, details = {}) {
+  const nowMs = Date.now();
+  const existing = recordedAvailabilityFailures().find((item) =>
+    item?.agent === agent && sameModel(agent, item?.model, model));
+  const resetAtMs = Number(details.resetAtMs);
+  const next = {
+    agent,
+    model,
+    reason: String(details.reason || existing?.reason || 'availability failure').replace(/\s+/g, ' ').slice(0, 300),
+    observedAtMs: nowMs,
+    ...(Number.isFinite(resetAtMs) && resetAtMs > nowMs ? { resetAtMs } : {}),
+    ...(details.retryDate || existing?.retryDate ? { retryDate: details.retryDate || existing.retryDate } : {}),
+    // Generic rate-limit/auth errors have no provider reset time. Retain the
+    // observed outage for a bounded period instead of branding it unavailable
+    // forever; a real successful run clears it early.
+    ...(!Number.isFinite(resetAtMs) && !(details.retryDate || existing?.retryDate)
+      ? { expiresAtMs: nowMs + 4 * 60 * 60_000 } : {}),
+  };
+  state.modelAvailability = [
+    ...recordedAvailabilityFailures().filter((item) =>
+      !(item?.agent === agent && sameModel(agent, item?.model, model))),
+    next,
+  ].slice(-32);
+  saveState(state);
+  logEvent('model_availability_recorded', { agent, model, reset_at: next.resetAtMs || null,
+    retry_date: next.retryDate || null, reason: next.reason });
+  return next;
+}
+
+function clearModelAvailabilityFailure(agent, model, source = 'successful_run') {
+  const records = recordedAvailabilityFailures();
+  const next = records.filter((item) => !(item?.agent === agent && sameModel(agent, item?.model, model)));
+  if (next.length === records.length) return false;
+  state.modelAvailability = next;
+  saveState(state);
+  logEvent('model_availability_cleared', { agent, model, source });
+  return true;
+}
+
+function recordedModelFailure(agent, model) {
+  return [...recordedAvailabilityFailures()].reverse().find((item) =>
+    item?.agent === agent && sameModel(agent, item?.model, model) && availabilityRecordIsCurrent(item)) || null;
+}
+
+function isModelAvailabilityFailure(result) {
+  if (!result || result.ok) return false;
+  return Number.isFinite(Number(result.resetAtMs)) ||
+    availabilityFailure(`${result.switchReason || ''}\n${result.text || ''}`);
+}
+
 function clearAvailabilityRecovery() {
   if (availabilityRetryTimer) clearTimeout(availabilityRetryTimer);
   availabilityRetryTimer = null;
@@ -1601,6 +1706,7 @@ async function attemptAvailabilityRecovery() {
     const replyTo = recovery.replyTo;
     state.lastAvailabilityRecovery = { agent: recovery.agent, model: recovery.model, restoredAt: new Date().toISOString() };
     if (state.temporaryModelChoice?.defaultAgent === recovery.defaultAgent) delete state.temporaryModelChoice;
+    clearModelAvailabilityFailure(recovery.agent, recovery.model, 'reset_probe');
     clearAvailabilityRecovery();
     logEvent('availability_recovered', { agent: recovery.agent, model: recovery.model });
     if (replyTo) await sendStatus(replyTo, 'availability_recovered', `Default ${agentLabel(recovery.agent, recovery.model)} is available again. Future requests use your default.`);
@@ -1640,19 +1746,158 @@ function alternativeAgentLabels(preferred) {
   const available = [...new Set([...AGENT_PRIORITY, 'codex', 'claude'])]
     .filter((name) => ['codex', 'claude'].includes(name));
   return preferredAgentOrder(preferred, available).slice(1)
-    .map((name) => agentLabel(name, name === 'codex' ? CODEX_MODEL : CLAUDE_MODEL));
+    .map((name) => agentLabel(name, selectedDefaultModel(name)));
 }
 
-function setDefaultAgentPreference(want) {
+function configuredAgentNames() {
+  return [...new Set([...AGENT_PRIORITY, 'codex', 'claude'])]
+    .filter((name) => ['codex', 'claude'].includes(name));
+}
+
+function sameModel(agent, left, right) {
+  const a = String(left || '').toLowerCase();
+  const b = String(right || '').toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (agent !== 'claude') return false;
+  const family = (value) => ['fable', 'opus', 'sonnet', 'haiku'].find((name) => value.includes(name));
+  return Boolean(family(a) && family(a) === family(b));
+}
+
+function knownModelFailure(agent, model) {
+  const transient = [state.pendingModelSwitch, state.availabilityRecovery, state.temporaryModelChoice]
+    .filter(Boolean)
+    .map((item) => ({
+      agent: item.failedAgent || item.agent,
+      model: item.failedModel || item.model,
+      resetAtMs: item.resetAtMs,
+    }));
+  return recordedModelFailure(agent, model) ||
+    transient.find((item) => item.agent === agent && sameModel(agent, item.model, model)) || null;
+}
+
+function availabilityRetryLabel(failure) {
+  const resetAtMs = Number(failure?.resetAtMs);
+  if (Number.isFinite(resetAtMs) && resetAtMs > Date.now()) {
+    return `retry after ${new Date(resetAtMs).toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    })}`;
+  }
+  const retryDate = String(failure?.retryDate || '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(retryDate)) {
+    return `retry on ${new Date(`${retryDate}T12:00:00`).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric',
+    })} (provider reset date)`;
+  }
+  return failure?.reason?.includes('usage limit')
+    ? 'usage-limited; retry later' : 'recent availability failure';
+}
+
+function modelAvailability(agent, item) {
+  const model = String(item?.model || item || '');
+  const failure = knownModelFailure(agent, model);
+  if (failure) {
+    return { model, label: String(item?.label || model), availability: 'unavailable',
+      detail: availabilityRetryLabel(failure) };
+  }
+  return {
+    model,
+    label: String(item?.label || model),
+    availability: 'available',
+    detail: agent === 'codex' ? 'live catalog' : 'configured; verified when selected',
+  };
+}
+
+function firstAgentModels(agent) {
+  if (agent === 'codex') {
+    const seen = new Set();
+    return [{ model: selectedDefaultModel(agent), label: selectedDefaultModel(agent) }, ...currentCodexModels()]
+      .filter((item) => {
+        const key = String(item?.model || item || '').toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 4)
+      .map((item) => modelAvailability(agent, item));
+  }
+  const seen = new Set();
+  const models = [selectedDefaultModel(agent), CLAUDE_MODEL, ...CLAUDE_MODEL_CANDIDATES].filter((model) => {
+    const value = String(model).toLowerCase();
+    const key = ['fable', 'opus', 'sonnet', 'haiku'].find((name) => value.includes(name)) || value;
+    if (!value || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 4);
+  return models.map((model) => modelAvailability(agent, { model, label: model }));
+}
+
+function newManualAgentChoice(agents = configuredAgentNames()) {
+  return createManualAgentChoice({
+    agents,
+    current: selectedDefaultAgent(),
+    models: { codex: selectedDefaultModel('codex'), claude: selectedDefaultModel('claude') },
+    modelChoices: Object.fromEntries(agents.map((agent) => [agent, firstAgentModels(agent)])),
+  });
+}
+
+function setDefaultAgentPreference(choice) {
+  const want = choice.agent;
   state.agentPreference = want;
+  if (choice.explicitModel && choice.model) {
+    state.agentModelPreferences = { ...(state.agentModelPreferences || {}), [want]: choice.model };
+  }
+  delete state.pendingAgentChoice;
   delete state.temporaryModelChoice;
   if (temporaryDiscoveryTimer) { clearTimeout(temporaryDiscoveryTimer); temporaryDiscoveryTimer = null; }
   if (state.availabilityRecovery) {
     clearAvailabilityRecovery();
     logEvent('availability_recovery_cancelled', { reason: 'manual_default_change', preference: want });
   } else saveState(state);
-  logEvent('agent_preference', { preference: want });
+  logEvent('agent_preference', { preference: want, model: selectedDefaultModel(want), explicit_model: Boolean(choice.explicitModel) });
   return alternativeAgentLabels(want);
+}
+
+async function applyManualAgentChoice(replyTo, choice) {
+  const want = choice.agent;
+  const alternatives = setDefaultAgentPreference(choice);
+  const fallback = currentMode() === 'full'
+    ? `Full-auto availability fallback remains automatic; other agent: ${alternatives.join(' → ') || 'none available'}`
+    : `Automatic availability inquiry remains enabled; other agent: ${alternatives.join(' → ') || 'no other agent'}`;
+  const unfinished = state.pendingModelSwitch
+    ? '\nA prior model-switch inquiry is still waiting; use /decide to continue that unfinished run.'
+    : '';
+  return sendText(replyTo, `Default agent and model set: ${agentLabel(want, selectedDefaultModel(want))}\n${fallback}\nApplies to the next new run.${unfinished}`);
+}
+
+async function handleManualAgentCommand(replyTo, text) {
+  const answer = String(text || '').trim().replace(/^\/agent\s*/i, '');
+  const priorityNote = state.pendingModelSwitch || state.pendingDecision
+    ? '\nA prior numbered inquiry is also pending. Use explicit /agent N here; a bare number answers that earlier inquiry.'
+    : '';
+  if (!answer) {
+    state.pendingAgentChoice = newManualAgentChoice();
+    saveState(state);
+    logEvent('manual_agent_picker_opened', { choices: state.pendingAgentChoice.choices.map((choice) => choice.agent) });
+    return sendText(replyTo, formatManualAgentChoiceForPhone(state.pendingAgentChoice) + priorityNote);
+  }
+  const namedAgent = configuredAgentNames().find((agent) => agent === answer.toLowerCase());
+  if (namedAgent) {
+    state.pendingAgentChoice = newManualAgentChoice([namedAgent]);
+    saveState(state);
+    logEvent('manual_agent_picker_opened', { choices: [namedAgent], filtered: true });
+    return sendText(replyTo, formatManualAgentChoiceForPhone(state.pendingAgentChoice) + priorityNote);
+  }
+  const pending = state.pendingAgentChoice || newManualAgentChoice();
+  const want = resolveManualAgentChoice(pending, answer);
+  if (!want) {
+    state.pendingAgentChoice = newManualAgentChoice();
+    saveState(state);
+    return sendText(replyTo, `Unknown agent choice "${answer}".\n${formatManualAgentChoiceForPhone(state.pendingAgentChoice)}`);
+  }
+  logEvent('manual_agent_picker_selected', { agent: want.agent, model: want.model,
+    input: /^\d+$/.test(answer) ? 'number' : 'name' });
+  return applyManualAgentChoice(replyTo, want);
 }
 
 function migrateLastHandoffChoice() {
@@ -1661,7 +1906,7 @@ function migrateLastHandoffChoice() {
     recentHistory: state.recentHistory,
     lastRunView: state.lastRunView,
     defaultAgent: selectedDefaultAgent(),
-    defaultModel: selectedDefaultAgent() === 'claude' ? CLAUDE_MODEL : CODEX_MODEL,
+    defaultModel: selectedDefaultModel(),
   });
   if (!choice) return false;
   state.temporaryModelChoice = choice;
@@ -1682,22 +1927,23 @@ function armTemporaryResetDiscovery(delayMs = 2000) {
     const current = state.temporaryModelChoice;
     if (!current || current.selectedAt !== choice.selectedAt) return;
     if (activeRun) return armTemporaryResetDiscovery(120_000);
-    const probe = await probeClaudeAvailability(current.failedModel || CLAUDE_MODEL);
+    const probe = await probeClaudeAvailability(current.failedModel || selectedDefaultModel('claude'));
     if (state.temporaryModelChoice?.selectedAt !== current.selectedAt ||
         current.defaultAgent !== selectedDefaultAgent()) return;
     if (probe.ok) {
       delete state.temporaryModelChoice;
-      state.lastAvailabilityRecovery = { agent: 'claude', model: current.failedModel || CLAUDE_MODEL,
+      state.lastAvailabilityRecovery = { agent: 'claude', model: current.failedModel || selectedDefaultModel('claude'),
         restoredAt: new Date().toISOString() };
+      clearModelAvailabilityFailure('claude', current.failedModel || selectedDefaultModel('claude'), 'reset_probe');
       saveState(state);
-      logEvent('availability_recovered', { agent: 'claude', model: current.failedModel || CLAUDE_MODEL,
+      logEvent('availability_recovered', { agent: 'claude', model: current.failedModel || selectedDefaultModel('claude'),
         source: 'handoff_migration' });
       return;
     }
     if (probe.resetAtMs) {
       current.resetAtMs = probe.resetAtMs;
       saveState(state);
-      scheduleAvailabilityRecovery({ failedAgent: 'claude', failedModel: current.failedModel || CLAUDE_MODEL,
+      scheduleAvailabilityRecovery({ failedAgent: 'claude', failedModel: current.failedModel || selectedDefaultModel('claude'),
         resetAtMs: probe.resetAtMs }, current.replyTo);
     }
   }, delayMs);
@@ -1721,39 +1967,33 @@ async function handleInbound(replyTo, text, sentAtMs = null, attachments = [], c
   if (cmd === '/new') {
     state.sessionId = null; state.claudeSessionId = null; state.codexSessionId = null;
     state.lastAgent = null; state.recentHistory = [];
-    delete state.pendingDecision; delete state.pendingModelSwitch; delete state.lastRunView; saveState(state);
+    delete state.pendingDecision; delete state.pendingModelSwitch; delete state.pendingAgentChoice;
+    delete state.lastRunView; saveState(state);
     return sendText(replyTo, 'Fresh sessions started for Codex and Claude. Context cleared.');
   }
   if (cmd === '/agent' || cmd.startsWith('/agent ')) {
-    const want = cmd.slice(6).trim();
-    if (!want) {
-      const preferred = selectedDefaultAgent();
-      const alternatives = alternativeAgentLabels(preferred);
-      const fallback = currentMode() === 'full'
-        ? `Full-auto fallback continues automatically through available models; other agent: ${alternatives.join(' → ') || 'none available'}`
-        : `Other-agent model choice on failure: ${alternatives.join(' → ') || 'none available'}`;
-      return sendText(replyTo, `Default agent: ${agentLabel(preferred, preferred === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)}\n${fallback}\nSwitch default: /agent codex | claude`);
-    }
-    if (!['codex', 'claude'].includes(want)) {
-      return sendText(replyTo, `Unknown agent "${want}". Use /agent codex | claude`);
-    }
-    const alternatives = setDefaultAgentPreference(want);
-    const fallback = currentMode() === 'full'
-      ? `Full-auto availability fallback: automatic; other agent: ${alternatives.join(' → ') || 'none available'}`
-      : `Model choice on failure includes: ${alternatives.join(' → ') || 'no other agent'}`;
-    return sendText(replyTo, `Default agent set: ${agentLabel(want, want === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)}\n${fallback}\nApplies to the next message.`);
+    return handleManualAgentCommand(replyTo, text);
+  }
+  if (/^\d+$/.test(text.trim()) && state.pendingAgentChoice && !state.pendingModelSwitch && !state.pendingDecision) {
+    const want = implicitManualAgentChoice(state, text);
+    if (want) return applyManualAgentChoice(replyTo, want);
+    delete state.pendingAgentChoice;
+    saveState(state);
   }
   if (cmd === '/status' || cmd === '/start') {
     const up = Math.round(process.uptime() / 60);
     const sessions = `Codex ${state.codexSessionId ? state.codexSessionId.slice(0, 8) : 'fresh'} · Claude ${state.claudeSessionId ? state.claudeSessionId.slice(0, 8) : 'fresh'}`;
-    const last = state.lastAgent ? agentLabel(state.lastAgent, state.lastAgent === 'codex' ? CODEX_MODEL : CLAUDE_MODEL) : 'none';
+    const last = state.lastAgent
+      ? agentLabel(state.lastAgent, state.lastRunView?.model || selectedDefaultModel(state.lastAgent)) : 'none';
     const pending = state.pendingModelSwitch ? '\nDecision: waiting for model choice'
-      : state.pendingDecision ? '\nDecision: waiting for /decide' : '';
+      : state.pendingDecision ? '\nDecision: waiting for /decide'
+      : state.pendingAgentChoice && resolveManualAgentChoice(state.pendingAgentChoice, '1')
+        ? '\nDecision: waiting for /agent selection' : '';
     const tickets = state.pendingTicketSet?.status === 'pending'
       ? `\nReport tickets: ${state.pendingTicketSet.tickets?.length || 0} awaiting approval` : '';
     const brokerRecovery = ['running', 'waiting_model', 'needs_reconfirmation', 'needs_verification', 'blocked'].includes(state.pendingBrokerExecution?.status)
       ? `\nBroker execution: ${state.pendingBrokerExecution.status.replaceAll('_', ' ')}` : '';
-    return sendText(replyTo, `Bridge up ${up}m (${PROVIDER})\nDefault agent: ${selectedDefaultAgent().toUpperCase()}${state.lastAgent ? ` (last: ${last})` : ''}\nMode: ${currentMode()}${pending}${tickets}${brokerRecovery}\nDesk: ${DESK_DIR}\nSessions: ${sessions}\nNo active run. Send a request normally to begin.`);
+    return sendText(replyTo, `Bridge up ${up}m (${PROVIDER})\nDefault: ${agentLabel(selectedDefaultAgent(), selectedDefaultModel())}${state.lastAgent ? ` (last: ${last})` : ''}\nMode: ${currentMode()}${pending}${tickets}${brokerRecovery}\nDesk: ${DESK_DIR}\nSessions: ${sessions}\nNo active run. Send a request normally to begin.`);
   }
   if (cmd === '/mode' || cmd.startsWith('/mode ')) {
     const want = cmd.slice(5).trim();
@@ -2178,11 +2418,20 @@ function enqueue(id, from, text, replyTo = from, sentAtMs = null, attachments = 
     return;
   }
   if (/^(join|stop)\b/i.test(text)) return; // twilio sandbox control words, not prompts
-  const immediateAgent = attachments.length ? null : text.match(/^\/agent\s+(codex|claude)\s*$/i);
-  if (activeRun && immediateAgent) {
-    const want = immediateAgent[1].toLowerCase();
-    const alternatives = setDefaultAgentPreference(want);
-    sendText(replyTo, `Default agent set: ${agentLabel(want, want === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)}\nModel choice on failure includes: ${alternatives.join(' → ') || 'no other agent'}\nApplies immediately.`).catch(() => {});
+  const immediateAgentCommand = !attachments.length && /^\/agent(?:\s+\S+)?\s*$/i.test(text);
+  if (activeRun && immediateAgentCommand) {
+    handleManualAgentCommand(replyTo, text).catch((e) => {
+      logEvent('manual_agent_picker_error', { error: e.message });
+      sendText(replyTo, `Agent selection failed: ${e.message}`).catch(() => {});
+    });
+    return;
+  }
+  const immediateAgentNumber = activeRun && !attachments.length
+    ? implicitManualAgentChoice(state, text) : null;
+  if (immediateAgentNumber) {
+    applyManualAgentChoice(replyTo, immediateAgentNumber).catch((e) => {
+      logEvent('manual_agent_picker_error', { error: e.message });
+    });
     return;
   }
   if (activeRun && !attachments.length && /^\/status$/i.test(text.trim())) {

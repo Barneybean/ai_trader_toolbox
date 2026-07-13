@@ -13,13 +13,14 @@ test('help lists every supported phone command and important alias', () => {
   const help = formatPhoneHelp();
   for (const command of [
     '/status', '/steer TEXT', '/stop', '/run', '/interrupt', '/start', '/new', '/agent',
-    '/agent codex', '/agent claude', '/decide N', '/decide TEXT', '/models',
+    '/agent N', '/agent codex', '/agent claude', '/decide N', '/decide TEXT', '/models',
     '/decide claude MODEL', '/decide codex MODEL', '/mode', '/mode manual', '/mode semi',
     '/mode full', '/help', '/commands',
   ]) assert.match(help, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(help, /normal messages queue/i);
   assert.match(help, /Trade approvals are normal replies/i);
   assert.match(help, /ok to execute/i);
+  assert.match(help, /automatic availability switching remains enabled/i);
 });
 
 test('parses remote run controls without capturing normal prompts', () => {
