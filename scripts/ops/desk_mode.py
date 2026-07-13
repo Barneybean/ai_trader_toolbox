@@ -16,7 +16,7 @@ Modes:
   full    configured execution account only: desk decides and executes within playbook gates;
           borderline calls proposed, every fill reported immediately + rationale
 
-Default (missing/unreadable file): manual.
+Default (missing/unreadable file): semi.
 """
 import json
 import os
@@ -33,7 +33,7 @@ MODES = {
     "semi": "SEMI-AUTO — reports propose numbered tickets; your approval reply executes them",
     "full": "FULL-AUTO — configured execution-account trades execute autonomously within playbook gates; every fill reported immediately with rationale",
 }
-DEFAULT = "manual"
+DEFAULT = "semi"
 
 
 def current():

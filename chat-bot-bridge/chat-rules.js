@@ -11,7 +11,7 @@
 //            the confirm, then the desk executes exactly those tickets
 //   full   — configured execution account only: the desk decides AND executes within
 //            playbook limits, reporting every fill + rationale immediately
-// Public-safe default (no file / bad file): manual.
+// Public default (no file / bad file): semi.
 
 import fs from 'fs';
 import path from 'path';
@@ -30,14 +30,15 @@ export const MODES = {
 export function currentMode() {
   try {
     const m = JSON.parse(fs.readFileSync(MODE_FILE, 'utf8')).mode;
-    return m in MODES ? m : 'manual';
-  } catch { return 'manual'; }
+    return m in MODES ? m : 'semi';
+  } catch { return 'semi'; }
 }
 
 export function setMode(mode) {
   if (!(mode in MODES)) throw new Error(`unknown mode: ${mode}`);
   // atomic write (tmp + rename) — desk_mode.py and scheduled runs read this file
-  // concurrently; a truncated read falls back to the least-permissive mode.
+  // concurrently; a truncated read falls back to the default mode (semi), which
+  // still requires explicit ticket approval before any order executes.
   const tmp = MODE_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify({ mode, updated: new Date().toISOString(), source: 'bridge' }, null, 2) + '\n');
   fs.renameSync(tmp, MODE_FILE);

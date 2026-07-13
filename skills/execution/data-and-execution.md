@@ -137,8 +137,8 @@ footprints an unusual-options-flow or tick feed (see below) would be the upgrade
 
 ## Execution — preview every order; authorization follows the active mode
 
-Read `skills/decision/trading-modes.md` before acting. `manual` is the public default and kill
-switch. `semi` and experimental `full` have no authority until the user explicitly opts in.
+Read `skills/decision/trading-modes.md` before acting. `semi` is the public default (numbered tickets
+the user approves). `manual` is the per-order-confirm kill switch; experimental `full` has no authority until the user explicitly opts in.
 For every proposed or executable ticket:
 
 1. **Restate the exact order:** symbol, buy/sell, quantity, order type (prefer limit), limit price,

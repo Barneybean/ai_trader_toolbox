@@ -1,6 +1,6 @@
 ---
 name: ai-trader
-description: Run a simulated multi-role trading desk (research analysts, quant, sentiment, portfolio manager/trader, risk manager, and a CIO review committee) to find and pressure-test stock trade ideas, then surface ONLY the ones with genuine edge. Use this skill whenever the user asks for trade ideas, a market/desk run, "what should I buy", a deep analysis of a ticker, a review of their watchlist, or wants recommendations to grow their account. It prioritizes the user's watchlist, also scans for better ideas, partitions capital into a short-term (tactical) and long-term (core) sleeve, and enforces a high review bar so only needle-moving ideas reach the user. Execution is mode-gated and defaults to manual confirmation.
+description: Run a simulated multi-role trading desk (research analysts, quant, sentiment, portfolio manager/trader, risk manager, and a CIO review committee) to find and pressure-test stock trade ideas, then surface ONLY the ones with genuine edge. Use this skill whenever the user asks for trade ideas, a market/desk run, "what should I buy", a deep analysis of a ticker, a review of their watchlist, or wants recommendations to grow their account. It prioritizes the user's watchlist, also scans for better ideas, partitions capital into a short-term (tactical) and long-term (core) sleeve, and enforces a high review bar so only needle-moving ideas reach the user. Execution is mode-gated and defaults to semi (numbered tickets the user approves).
 ---
 
 # AI Trader
@@ -46,8 +46,8 @@ Analysis is expensive — spend it where the money is. Every run narrows:
 - **Crises: protect the base, then hunt.** On a crash/regime-shock (bubble unwind, credit seizure, exogenous shock, policy rupture), switch to `skills/analysis/crisis-playbook.md`. Prime directive: survive with dry powder (no leverage, raise cash, size for vol) — crises make the generational trades. Read the phase (de-risk → capitulation → policy response → new leadership); the same buy is suicide in one phase and the trade of the decade in another.
 - **Apply the user's playbook.** Fold in house views (`skills/playbook/house-views.md`), tracked theses (`skills/playbook/watchlist-theses.md`), option structures (`skills/playbook/options.md`), and the mentor method (`skills/playbook/mentor-method.md`: institutional read, undervalued-quality + ~2x path, management research, 25%-per-name cap). Name which view a recommendation leans on.
 - **Execution authority is explicit and mode-gated.** Read `skills/decision/trading-modes.md` at
-  the start of every run. `manual` is the public default and requires an order-specific confirmation;
-  `semi` approves named tickets; experimental `full` is disabled until the user explicitly opts in
+  the start of every run. `semi` is the public default (numbered tickets the user approves);
+  `manual` is the per-order-confirm kill switch; experimental `full` is disabled until the user explicitly opts in
   and remains bounded by previews, account scope, sufficiency/risk gates, logging, and `/mode manual`.
 - **Probabilistic, not prophetic.** Every call carries a conviction level and explicit invalidation. No hype.
 - **Optimize after-tax, after-cost.** Balance gain, risk, and tax; hold the best names, cap losses, limit churn — `skills/decision/strategies.md`, `skills/decision/tax-aware.md`.
@@ -192,7 +192,7 @@ _If nothing clears the bar, say so and recommend holding cash._
 
 ## Sources
 - <every material number → a dated link>
-_Informational only — not financial advice. Execution follows the active trading mode; manual is the default and kill switch._
+_Informational only — not financial advice. Execution follows the active trading mode; semi is the default and manual is the kill switch._
 ```
 
 ## After the report

@@ -8,7 +8,7 @@ to the same switch.
 
 Read the mode at the start of every run and shape the orders section of the output accordingly.
 A mode change applies from the very next message/action and the next scheduled run. Default
-when the file is missing or unreadable: `manual`.
+when the file is missing or unreadable: `semi`.
 
 ## The three modes
 

@@ -124,10 +124,10 @@ applied from the very next message and the next scheduled run:
   strictly inside the playbook gates (sizing, sufficiency, logged thesis + invalidation
   level); borderline calls get proposed instead of executed, and every fill is messaged to
   you immediately with the rationale.
-- **/mode semi** — opt in to numbered, fully-specified tickets; you
+- **/mode semi** — the public default; numbered, fully-specified tickets; you
   reply `approve 1` or `approve all` and exactly those execute. Ad-hoc orders still get one
   confirm round-trip each.
-- **/mode manual** — public default and advise-only kill switch; every exact order requires
+- **/mode manual** — advise-only kill switch; every exact order requires
   its own preview and explicit confirmation in a later message.
 
 `/mode` alone shows the current mode. In every mode, accounts outside the configured execution

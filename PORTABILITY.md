@@ -38,7 +38,7 @@ run the desk detects what's actually available and takes the matching branch:
 - **Data:** Robinhood MCP if present, else web + user-supplied OHLCV JSON/CSV → `scripts/analysis/indicators.py` (pure stdlib, runs anywhere).
 - **Roles:** parallel subagents if available, else sequential-but-separated passes.
 - **Delivery:** local self-contained HTML by default; publish only to an explicitly chosen private destination.
-- **Execution:** the public default is `manual` (preview plus explicit per-order confirmation).
+- **Execution:** the public default is `semi` (reports propose numbered tickets you approve; `manual` is the per-order-confirm kill switch).
   `semi` and `full` require explicit opt-in under `skills/decision/trading-modes.md`; without a
   broker connector, every mode falls back to an unplaced order ticket for the user.
 

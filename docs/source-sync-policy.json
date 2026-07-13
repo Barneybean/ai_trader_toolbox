@@ -119,13 +119,13 @@
       "AI Trader Toolbox"
     ],
     "scripts/ops/desk_mode.py": [
-      "DEFAULT = \"manual\""
+      "DEFAULT = \"semi\""
     ],
     "skills/decision/trading-modes.md": [
-      "missing or unreadable: `manual`"
+      "missing or unreadable: `semi`"
     ],
     "chat-bot-bridge/chat-rules.js": [
-      "return m in MODES ? m : 'manual'"
+      "return m in MODES ? m : 'semi'"
     ],
     "docs/open-source-boundary.md": [
       "## Canonical directory structure"

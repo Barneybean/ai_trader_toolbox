@@ -216,7 +216,7 @@ or execution rules.
 
 ### Trading autonomy
 
-The recommended public default is `manual`. `semi` may approve numbered tickets. `full`, if ever
+The public default is `semi` (numbered tickets the user approves before anything executes); `manual` is the per-order-confirm kill switch. `full`, if ever
 published, must be experimental and disabled by default, with explicit opt-in, broker/account
 scope, sufficiency and risk gates, a kill switch, immediate order/fill reporting, no transfers, and
 paper/sandbox testing. Public documentation must never promise automatic profit.

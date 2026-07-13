@@ -44,7 +44,7 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - `decision/insight-registry.md` — machine-readable, expiring method hypotheses in the private journal; out-of-sample scoring determines which signals earn attention.
 - `decision/reflection-memory.md` — the learning loop: log, score raw + alpha-vs-SPY, one lesson, recall into future runs. *(From TradingAgents.)*
 - `decision/tax-aware.md` — holding-period, wash-sale, tax-loss-harvest rules.
-- `decision/trading-modes.md` — shared execution-authority switch: `manual` is the public default and kill switch; `semi` and `full` require explicit user opt-in.
+- `decision/trading-modes.md` — shared execution-authority switch: `semi` is the public default (numbered tickets the user approves); `manual` is the per-order kill switch; `full` requires explicit user opt-in.
 
 ## playbook/ — the user's context (bring-your-own; git-ignored overlay in `skills/private/`)
 - `playbook/mentor-method.md` — undervalued-quality + 2x path, management read, 25% concentration cap.

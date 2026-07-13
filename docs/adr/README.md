@@ -45,3 +45,4 @@ Routine bug fixes, copy edits, and new reference content don't need one.
 - [ADR-0008](0008-read-only-source-sync-audit.md) — Read-only source sync audit before public ports — Accepted
 - [ADR-0009](0009-book-state-reconciliation-gate-and-forward-act-when-triggers.md) — Book-state reconciliation gate and forward Act-when triggers — Accepted
 - [ADR-0010](0010-modular-phone-bridge-re-architecture.md) — Modular phone-bridge re-architecture — Accepted
+- [ADR-0011](0011-public-default-trading-mode-is-semi.md) — Public default trading mode is `semi` — Accepted
