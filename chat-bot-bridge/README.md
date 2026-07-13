@@ -64,7 +64,7 @@ Telegram · Discord · WhatsApp
 1. Create a bot with @BotFather and put its token plus your numeric user ID in `.env`.
 2. Replace `YOUR_NAME` paths in the `com.example.*.plist` templates, then install the bridge
    (`npm run service:install`). Telegram uses long polling and needs no public inbound port.
-3. Message **t.me/YOUR_BOT**. Commands: `/new`, `/status`, `/mode`, `/help`.
+3. Message **t.me/YOUR_BOT**. Commands: `/new`, `/status`, `/mode`, `/decide`, `/help`.
 
 To re-create from scratch: @BotFather → `/newbot` → put the token in
 `TELEGRAM_BOT_TOKEN` → message the bot once → `curl .../getUpdates` to read your numeric
@@ -139,8 +139,17 @@ scope are read-only, and no mode permits money movement. Full user manual:
 Send normal requests such as `run the alerts sweep`, `analyze SYM`, or `run today's report`.
 An order request still follows the active trading mode and exact-ticket confirmation rules.
 
-Bridge commands: `/new` (fresh sessions for every agent), `/status` (health), `/mode` (view/set
-trading mode), `/help`.
+Bridge commands: `/new` (fresh sessions for every agent), `/status` (active run or bridge health),
+`/mode` (view/set trading mode), `/agent` (view/set default agent), `/stop` (interrupt the active
+turn but preserve its session), `/steer TEXT` (redirect the running turn), `/decide N` (answer a
+pending agent decision), and `/help`. Long-running requests stream a compact live run card; the
+bridge runs one prompt at a time.
+
+When the agent needs a material choice mid-run it does not guess — it posts a numbered decision and
+pauses; your `/decide N` resumes that session. When a phone interaction changes repository files, the
+bridge produces a private mobile code-change review (kept in the git-ignored runtime directory, never
+in the investment `reports/` tree). After editing bridge runtime code, activation is deferred until
+the current reply is delivered, so a restart never drops your in-flight message.
 
 `/agent` shows or sets the default phone agent. AUTO uses the configured priority order first
 and falls back to the next available agent. If the active agent hits a usage limit or cannot continue,

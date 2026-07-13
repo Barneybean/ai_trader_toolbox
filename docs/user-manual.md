@@ -50,6 +50,9 @@ The public docs expose the same command surface as the phone bridge.
 | `/mode manual` | Require explicit confirmation for each order. |
 | `/mode semi` | Propose numbered tickets and wait for approval. |
 | `/mode full` | Allow the opt-in autonomous mode, still bound by the desk gates. |
+| `/stop` | Interrupt the active turn but keep its session and any completed file. |
+| `/steer TEXT` | Redirect the currently running turn without starting over. |
+| `/decide N` | Answer a pending agent decision by number and resume that session. |
 | `/help` | List the supported commands. |
 
 ---

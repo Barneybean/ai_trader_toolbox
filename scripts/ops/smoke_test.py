@@ -226,14 +226,37 @@ def smoke_commands(files: list[str]) -> tuple[list[tuple[str, list[str], Path]],
                 "-e",
                 (
                     "import { chatRules, MODES, currentMode } from './chat-bot-bridge/chat-rules.js';"
-                    "import { codexAvailabilityError } from './chat-bot-bridge/agent-routing.js';"
+                    "import { claudeRateLimitBlocked, codexAvailabilityError, createRunCircuitBreaker, shouldFallbackForBroker } from './chat-bot-bridge/agent-routing.js';"
                     "const text = chatRules('semi');"
                     "const normal = {type:'item.completed',item:{type:'command_execution',status:'completed',exit_code:0,command:'rg not found'}};"
                     "const limited = {type:'error',message:'rate limit reached; try again later'};"
                     "const failed = {type:'item.completed',item:{type:'command_execution',status:'failed',exit_code:127,command:'tool',stderr:'command not found'}};"
+                    "const guard = createRunCircuitBreaker({maxToolCalls:2,maxIdenticalToolCalls:1,maxOutputTokens:5});"
                     "if (!text.includes('SEMI-AUTO') || !MODES.manual || !['manual','semi','full'].includes(currentMode())"
-                    " || codexAvailabilityError(normal) !== null || !codexAvailabilityError(limited) || !codexAvailabilityError(failed)) process.exit(1);"
+                    " || codexAvailabilityError(normal) !== null || !codexAvailabilityError(limited) || codexAvailabilityError(failed) !== null"
+                    " || !shouldFallbackForBroker('show open orders','live broker status unavailable')"
+                    " || shouldFallbackForBroker('explain the methodology','broker tools unavailable')"
+                    " || claudeRateLimitBlocked({status:'allowed'}) || claudeRateLimitBlocked({status:'allowed_warning'})"
+                    " || !claudeRateLimitBlocked({status:'rejected'})"
+                    " || guard.observeTool('same') !== null || !guard.observeTool('same')"
+                    " || !guard.observeOutputTokens(6)) process.exit(1);"
                 ),
+            ],
+            ROOT,
+        ))
+        commands.append((
+            "bridge behavior tests",
+            [
+                "node", "--test",
+                "chat-bot-bridge/agent-routing.test.js",
+                "chat-bot-bridge/availability-recovery.test.js",
+                "chat-bot-bridge/inbound-media.test.js",
+                "chat-bot-bridge/model-routing.test.js",
+                "chat-bot-bridge/phone-output.test.js",
+                "chat-bot-bridge/remote-control.test.js",
+                "chat-bot-bridge/run-telemetry.test.js",
+                "chat-bot-bridge/scheduled-task.test.js",
+                "chat-bot-bridge/ticket-approval.test.js",
             ],
             ROOT,
         ))

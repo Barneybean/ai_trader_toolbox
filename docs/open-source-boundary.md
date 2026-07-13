@@ -231,7 +231,13 @@ as historical—not live signals or endorsements.
 
 Publish interfaces and sanitized templates, never live configuration. Broker adapters require
 capability detection, preview, confirmation, reconciliation, audit logging, kill switch behavior,
-and sandbox integration tests.
+and sandbox integration tests. The bridge ships as **side-effect-free capability modules**
+(agent-routing, model-routing, availability-recovery, ticket-approval, remote-control,
+change-review, phone-output, run-telemetry, inbound-media, broker-preflight, scheduled-task), each
+with a Node `--test` suite and gated by the smoke suite (ADR-0010); `server.js` is the transport
+shell. Phone run controls (`/run`, `/stop`, `/steer`, `/decide`) and mobile code-change reviews are
+public capabilities, but every launchd label/path stays a `YOUR_NAME`/`com.example` template and all
+account/execution defaults stay public-safe (`manual`, execution-scope-only, no money movement).
 
 ### Agent integrations and switching
 

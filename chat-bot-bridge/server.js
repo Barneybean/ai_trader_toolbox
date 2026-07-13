@@ -2,7 +2,7 @@
 /**
  * Chat-bot bridge for the trading desk — phone messenger in, Claude Code out.
  * Multi-provider, all official; auto-detected from .env credentials
- * (precedence provider priority order configured by the user) or forced with PROVIDER=...:
+ * (precedence telegram > discord > twilio > meta) or forced with PROVIDER=...:
  *   - telegram: Bot API long-polling (current; free, no tunnel, near-instant)
  *   - twilio:   Twilio WhatsApp API (polling or webhook mode)
  *   - meta:     WhatsApp Business Cloud API (webhook + Graph API)
@@ -30,10 +30,81 @@ import crypto from 'crypto';
 import dns from 'dns';
 import fs from 'fs';
 import path from 'path';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { chatRulesBase, modeRules, currentMode, setMode, MODES } from './chat-rules.js';
-import { CODEX_UNAVAILABLE_RE, codexAvailabilityError } from './agent-routing.js';
+import {
+  CODEX_UNAVAILABLE_RE,
+  availabilityFailure,
+  brokerRequestKind,
+  claudeRateLimitBlocked,
+  codexAvailabilityError,
+  createRunCircuitBreaker,
+  preferredAgentOrder,
+  prioritizeBrokerAgent,
+  shouldFallbackForBroker,
+} from './agent-routing.js';
+import { sanitizePhoneText } from './phone-output.js';
+import {
+  DEFAULT_CLAUDE_MODELS,
+  automaticModelHandoffPrompt,
+  buildInterleavedModelPlan,
+  buildModelChoiceSet,
+  executeAvailabilityPlan,
+  formatModelChoiceForPhone,
+  implicitModelChoiceAnswer,
+  isMoreModelsRequest,
+  modelHandoffPrompt,
+  nextModelChoicePage,
+  parseCodexModelCatalog,
+  resolveModelChoice,
+  shouldAutoModelFallback,
+} from './model-routing.js';
+import { buildScheduledPrompt, SCHEDULE_KINDS, scheduledLabel } from './scheduled-task.js';
+import {
+  createRunTranscript,
+  decisionContinuation,
+  formatDecisionForPhone,
+  parseDecisionRequest,
+  toolEventLine,
+} from './run-telemetry.js';
+import {
+  createRemoteRunView,
+  finishRemoteRunView,
+  formatPhoneHelp,
+  formatRemoteRunView,
+  parseRemoteControl,
+  updateRemoteRunView,
+} from './remote-control.js';
+import {
+  recoveryNextAttemptAt,
+  handoffChoiceFromState,
+  resetSecondsToMs,
+  shouldRunRecovery,
+  temporaryChoiceForRun,
+} from './availability-recovery.js';
+import {
+  MAX_INBOUND_IMAGES,
+  MAX_INBOUND_IMAGE_BYTES,
+  cleanupInboundImages,
+  codexImageArgs,
+  imagePromptSuffix,
+  normalizedImageType,
+  saveInboundImage,
+} from './inbound-media.js';
+import { createBrokerPreflightTracker, scheduledBrokerCorrectionPrompt } from './broker-preflight.js';
+import {
+  buildChangeReview,
+  captureWorkspaceSnapshot,
+  parseChangeReason,
+} from './change-review.js';
+import {
+  brokerExecutionFailed,
+  brokerExecutionSucceeded,
+  buildTrustedBrokerApprovalInstructions,
+  extractReportTickets,
+  resolveTicketApproval,
+} from './ticket-approval.js';
 
 // Some macOS/Wi-Fi combinations advertise an IPv6 route that black-holes
 // Telegram traffic. Node's fetch can then sit in the OS connect path for many
@@ -45,6 +116,13 @@ const BRIDGE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DESK_DIR = path.resolve(BRIDGE_DIR, '..');
 const STATE_FILE = path.join(BRIDGE_DIR, 'state.json');
 const SETTINGS_FILE = path.join(BRIDGE_DIR, 'claude-settings.json');
+const RUN_LOG_DIR = path.join(BRIDGE_DIR, 'logs', 'phone-runs');
+const INBOUND_MEDIA_DIR = path.join(BRIDGE_DIR, 'logs', 'inbound-media');
+const CHANGE_SNAPSHOT_DIR = path.join(BRIDGE_DIR, 'logs', 'change-snapshots');
+const CHANGE_REVIEW_DIR = path.join(BRIDGE_DIR, 'logs', 'change-reviews');
+const RESTART_REQUEST_FILE = path.join(BRIDGE_DIR, 'logs', 'restart-request.json');
+const SERVICE_CONTROL = path.join(BRIDGE_DIR, 'service-control.sh');
+const SCHEDULER_TOKEN_FILE = path.join(BRIDGE_DIR, 'logs', 'scheduler-token');
 
 // minimal .env loader (no dotenv dependency)
 try {
@@ -75,28 +153,33 @@ const {
   APP_SECRET,            // Meta app secret — validates webhook signatures
   VERIFY_TOKEN,          // any string you choose; must match Meta webhook config
 } = process.env;
-const PROVIDER_PRIORITY = (process.env.PROVIDER_PRIORITY || 'telegram,discord,twilio,meta')
-  .split(',').map(x => x.trim()).filter(Boolean);
-const PROVIDER_CONFIGURED = {
-  telegram: Boolean(TELEGRAM_BOT_TOKEN),
-  discord: Boolean(DISCORD_BOT_TOKEN),
-  twilio: Boolean(TWILIO_ACCOUNT_SID),
-  meta: Boolean(WHATSAPP_TOKEN),
-};
 const PROVIDER = process.env.PROVIDER ||
-  PROVIDER_PRIORITY.find(name => PROVIDER_CONFIGURED[name]) || PROVIDER_PRIORITY[0] || 'telegram';
+  (TELEGRAM_BOT_TOKEN ? 'telegram' : DISCORD_BOT_TOKEN ? 'discord' : TWILIO_ACCOUNT_SID ? 'twilio' : 'meta');
 const PORT = Number(process.env.PORT || 3000);
 const GRAPH_VERSION = process.env.GRAPH_VERSION || 'v23.0';
-const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
-const CODEX_BIN = process.env.CODEX_BIN || 'codex';
+const CLAUDE_BIN = process.env.CLAUDE_BIN || path.join(process.env.HOME, '.local/bin/claude');
+const CODEX_BIN = process.env.CODEX_BIN || '/opt/homebrew/bin/codex';
 const AGENT_PRIORITY = (process.env.AGENT_PRIORITY || 'codex,claude').split(',').map(x => x.trim()).filter(Boolean);
-const CODEX_MODEL = process.env.CODEX_MODEL || 'default';
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'default';
+const CODEX_MODEL = process.env.CODEX_MODEL || 'gpt-5.6-sol';
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-fable-5';
+const CLAUDE_MODEL_CANDIDATES = (process.env.CLAUDE_MODEL_CANDIDATES || DEFAULT_CLAUDE_MODELS.join(','))
+  .split(',').map((item) => item.trim()).filter(Boolean);
+const BROKER_AGENT = process.env.BROKER_AGENT || 'claude';
 // full desk runs + report builds regularly pass 30 min; killed runs lose the
 // whole result (seen 2026-07-11: META report SIGTERMed at the old 30-min cap)
 const CLAUDE_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MIN || 60) * 60 * 1000;
 const CODEX_TIMEOUT_MS = Number(process.env.CODEX_TIMEOUT_MIN || 60) * 60 * 1000;
-// WhatsApp/Telegram cap text at 4096; Twilio splits >1600 itself but cleaner to chunk ourselves
+const MAX_AGENT_ATTEMPTS = Math.max(1, Math.min(4, Number(process.env.MAX_AGENT_ATTEMPTS || 2)));
+const MAX_TOOL_CALLS = Math.max(1, Number(process.env.MAX_TOOL_CALLS || 120));
+const MAX_IDENTICAL_TOOL_CALLS = Math.max(1, Number(process.env.MAX_IDENTICAL_TOOL_CALLS || 6));
+const MAX_STREAM_OUTPUT_TOKENS = Math.max(1, Number(process.env.MAX_STREAM_OUTPUT_TOKENS || 64_000));
+const MAX_QUEUE_DEPTH = Math.max(0, Number(process.env.MAX_QUEUE_DEPTH || 5));
+const BROKER_RECOVERY_WINDOW_MS = Math.max(60_000, Number(process.env.BROKER_RECOVERY_WINDOW_MIN || 15) * 60_000);
+const PHONE_EXECUTION_LOG = (process.env.PHONE_EXECUTION_LOG || 'off').toLowerCase();
+const SCHEDULE_PREFERRED_AGENT = (process.env.SCHEDULE_AGENT_PRIORITY || 'claude,codex')
+  .split(',').map((item) => item.trim()).find((item) => ['claude', 'codex'].includes(item)) || 'claude';
+// Provider caps vary; the phone-output gate applies the desk's stricter
+// 1,500-character ceiling before any text reaches a provider.
 // twilio runs in webhook mode when PUBLIC_URL is set, else POLLING mode:
 // pull inbound messages from the Twilio API over outbound HTTPS — no tunnel,
 // no inbound exposure, ~POLL_MS reply latency.
@@ -116,6 +199,8 @@ const required =
 // the one identity allowed to drive the desk, regardless of provider
 const ALLOWED_SENDER = PROVIDER === 'telegram' ? TELEGRAM_ALLOWED_USER_ID
   : PROVIDER === 'discord' ? DISCORD_ALLOWED_USER_ID : ALLOWED_WA_ID;
+const SCHEDULE_REPLY_TO = process.env.SCHEDULE_REPLY_TO ||
+  (PROVIDER === 'discord' ? DISCORD_CHANNEL_ID : ALLOWED_SENDER);
 const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
 if (missing.length) {
   console.error(`[${PROVIDER} mode] Missing required config: ${missing.join(', ')} — see .env.example.`);
@@ -129,9 +214,61 @@ if (missing.length) {
 function loadState() {
   try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return {}; }
 }
-function saveState(s) { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); }
+function saveState(s) {
+  const tmp = `${STATE_FILE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(s, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, STATE_FILE);
+}
 let state = loadState(); // separate provider sessions + shared last-run metadata
 if (state.sessionId && !state.claudeSessionId) state.claudeSessionId = state.sessionId; // migrate v2
+
+function migratePendingTicketSet() {
+  if (state.pendingTicketSet || state.pendingBrokerExecution) return false;
+  const history = Array.isArray(state.recentHistory) ? [...state.recentHistory].reverse() : [];
+  for (const item of history) {
+    if (item?.role !== 'assistant') continue;
+    const parsed = extractReportTickets(item.text);
+    if (!parsed.tickets.length) continue;
+    state.pendingTicketSet = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      sourcePrompt: 'migrated from recent phone report context',
+      status: 'pending',
+      tickets: parsed.tickets,
+    };
+    saveState(state);
+    return true;
+  }
+  return false;
+}
+
+function repairFalseCompletedBrokerExecution() {
+  if (state.pendingBrokerExecution?.status !== 'completed' || state.pendingTicketSet?.status !== 'handled') {
+    return false;
+  }
+  const latestAssistant = [...(Array.isArray(state.recentHistory) ? state.recentHistory : [])]
+    .reverse().find((item) => item?.role === 'assistant');
+  if (!latestAssistant || !brokerExecutionFailed(latestAssistant.text)) return false;
+  state.pendingBrokerExecution.status = 'blocked';
+  state.pendingBrokerExecution.finishedAt = new Date().toISOString();
+  state.pendingTicketSet.status = 'pending';
+  delete state.pendingTicketSet.handledAt;
+  saveState(state);
+  return true;
+}
+
+function schedulerToken() {
+  try {
+    const existing = fs.readFileSync(SCHEDULER_TOKEN_FILE, 'utf8').trim();
+    if (existing.length >= 32) return existing;
+  } catch { /* create below */ }
+  fs.mkdirSync(path.dirname(SCHEDULER_TOKEN_FILE), { recursive: true });
+  const token = crypto.randomBytes(32).toString('hex');
+  fs.writeFileSync(SCHEDULER_TOKEN_FILE, token + '\n', { mode: 0o600 });
+  fs.chmodSync(SCHEDULER_TOKEN_FILE, 0o600);
+  return token;
+}
+const SCHEDULER_TOKEN = schedulerToken();
 
 // --- session rotation: resuming one session forever replays an ever-growing
 // transcript on EVERY message (seen 2026-07-11: a 927KB session made each
@@ -163,18 +300,18 @@ function compactHistory(history) {
   }).join('\n');
 }
 
-function handoffPrompt({ from, to, reason, prompt, history, restart = false }) {
+function brokerFirstPrompt(prompt, kind, history) {
   const recent = compactHistory(history);
-  const context = recent ? `Recent phone context:\n${recent}\n\n` : '';
-  const transition = restart
-    ? 'The previous agent could not continue cleanly. Restart from the original prompt below.'
-    : 'Continue from the last completed step. Preserve completed work and do not repeat finished analysis unless needed to recover context.';
   return [
-    `Agent handoff from ${agentLabel(from.name, from.model)} to ${agentLabel(to.name, to.model)}.`,
-    `Reason: ${reason}.`,
-    transition,
-    `${context}Original prompt:\n${prompt}`,
-  ].join('\n\n');
+    `LIVE BROKER ${kind.toUpperCase()} REQUEST — mandatory fast path.`,
+    'Before reading repository docs, journal history, reports, or local registry files, use ToolSearch to load the Robinhood MCP tools if needed, then query the live broker state required for this request.',
+    kind === 'action'
+      ? 'Resolve the approved/current ticket from recent context, verify live account and order state, preview through the broker, and execute only if the active trading-mode confirmation gate is satisfied. Reconcile the resulting order status through MCP.'
+      : 'Answer from current MCP quotes, positions, portfolio, or order state as applicable. Do not substitute cached history for live status.',
+    'If Robinhood MCP is unavailable or unauthenticated, stop the live path, say execution/status is pending broker auth, and do not present docs or history as current state.',
+    recent ? `Recent phone context:\n${recent}` : '',
+    `Current request:\n${prompt}`,
+  ].filter(Boolean).join('\n\n');
 }
 
 function rotateSessionIfNeeded() {
@@ -219,6 +356,22 @@ function logTiming(rec) {
   } catch { /* never take the bridge down */ }
 }
 
+function managedAgentEnv() {
+  return {
+    ...process.env,
+    PATH: `${process.env.HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+    BRIDGE_MANAGED_RUN: '1',
+    BRIDGE_RESTART_REQUEST_FILE: RESTART_REQUEST_FILE,
+  };
+}
+
+function summarizeTool(name, input = {}) {
+  if (/bash|shell/i.test(name)) return String(input.command || input.cmd || '').replace(/\s+/g, ' ').slice(0, 900);
+  if (/read|edit|write/i.test(name)) return String(input.file_path || input.path || '').slice(0, 900);
+  if (/search/i.test(name)) return String(input.query || input.q || '').replace(/\s+/g, ' ').slice(0, 900);
+  return '';
+}
+
 // ------------------------------------------------------------ claude -------
 // Streams claude's output (--output-format stream-json) so the bridge can
 // notify the phone the moment things happen instead of after the run ends:
@@ -227,31 +380,50 @@ function logTiming(rec) {
 //                                 seen mid-run (throttled: ≥2 min apart, ≤3/run)
 const TROUBLE_RE = /rate.?limit|too many requests|overloaded|quota exceeded|\b429\b|\b529\b|fetch failed|failed to fetch|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|network error|API Error/i;
 
-function runClaude(prompt, onEvent = () => {}) {
+function runClaude(prompt, onEvent = () => {}, model = CLAUDE_MODEL, attachments = [], runtime = {}) {
   return new Promise((resolve) => {
+    const mediaContext = imagePromptSuffix(attachments);
     const args = [
-      '-p', prompt,
+      '-p', [prompt, mediaContext].filter(Boolean).join('\n\n'),
       '--output-format', 'stream-json',
       '--verbose',
       '--settings', SETTINGS_FILE,
-      ...(CLAUDE_MODEL === 'default' ? [] : ['--model', CLAUDE_MODEL]),
+      '--model', model,
       '--append-system-prompt', chatRulesBase(),
       '--append-system-prompt', modeRules(currentMode()),
     ];
+    if (runtime.trustedBrokerApproval) {
+      args.push('--append-system-prompt', runtime.trustedBrokerApproval);
+    }
     if (state.claudeSessionId) args.push('--resume', state.claudeSessionId);
 
     const child = spawn(CLAUDE_BIN, args, {
       cwd: DESK_DIR,
       stdio: ['ignore', 'pipe', 'pipe'], // no stdin — stops the CLI's 3s stdin wait/warning
-      env: {
-        ...process.env,
-        PATH: `${process.env.HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
-      },
+      env: managedAgentEnv(),
     });
+    if (activeRun) {
+      activeRun.child = child; activeRun.agent = 'claude'; activeRun.model = model;
+      if (activeRun.interrupt) child.kill('SIGTERM');
+    }
 
     let buf = '', err = '', result = null, started = false, timedOut = false;
-    let fallbackRequested = false, fallbackReason = null;
+    let fallbackRequested = false, fallbackReason = null, resetAtMs = null;
+    let circuitBroken = null;
     let lastTroubleMs = 0, troubleCount = 0;
+    const toolNames = new Map();
+    const guard = createRunCircuitBreaker({
+      maxToolCalls: MAX_TOOL_CALLS,
+      maxIdenticalToolCalls: MAX_IDENTICAL_TOOL_CALLS,
+      maxOutputTokens: MAX_STREAM_OUTPUT_TOKENS,
+    });
+    const tripCircuit = (reason) => {
+      if (circuitBroken) return;
+      circuitBroken = reason;
+      onEvent('circuit_breaker', { agent: 'claude', reason, ...guard.snapshot() });
+      child.kill('SIGTERM');
+      setTimeout(() => child.kill('SIGKILL'), 10_000);
+    };
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGTERM');
@@ -273,13 +445,30 @@ function runClaude(prompt, onEvent = () => {}) {
         if (!line.trim()) continue;
         let ev;
         try { ev = JSON.parse(line); } catch { continue; }
-        if (!started) { started = true; onEvent('started', { agent: 'claude', model: CLAUDE_MODEL }); }
+        if (!started) { started = true; onEvent('started', { agent: 'claude', model }); }
+        if (ev.type === 'system' && ev.subtype === 'init' && ev.session_id) {
+          state.claudeSessionId = ev.session_id;
+          saveState(state);
+        }
         if (ev.type === 'result') { result = ev; continue; }
+        if (ev.type === 'assistant') {
+          const outputStop = guard.observeOutputTokens(ev.message?.usage?.output_tokens);
+          if (outputStop) { tripCircuit(outputStop); continue; }
+          for (const c of ev.message?.content || []) {
+            if (c.type !== 'tool_use') continue;
+            toolNames.set(c.id, c.name);
+            onEvent('execution', { agent: 'claude', phase: 'started', tool: c.name,
+              summary: summarizeTool(c.name, c.input) });
+            const toolStop = guard.observeTool(JSON.stringify([c.name, c.input]));
+            if (toolStop) { tripCircuit(toolStop); break; }
+          }
+        }
         // the CLI reports usage-limit state as a first-class event
         if (ev.type === 'rate_limit_event') {
           const ri = ev.rate_limit_info;
-          if (ri && ri.status && ri.status !== 'allowed') {
-            const resets = ri.resetsAt ? ` — resets ${new Date(ri.resetsAt * 1000).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` : '';
+          if (claudeRateLimitBlocked(ri)) {
+            resetAtMs = resetSecondsToMs(ri.resetsAt);
+            const resets = resetAtMs ? ` — resets ${new Date(resetAtMs).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}` : '';
             fallbackRequested = true;
             fallbackReason = `usage limit: ${ri.status}${resets}`;
             reportTrouble(`Claude usage limit: ${ri.status}${resets}`);
@@ -293,7 +482,10 @@ function runClaude(prompt, onEvent = () => {}) {
         // and the TROUBLE_RE source line was texted to the phone as trouble)
         if (ev.type === 'user') {
           for (const c of ev.message?.content || []) {
-            if (c.type !== 'tool_result' || c.is_error !== true) continue;
+            if (c.type !== 'tool_result') continue;
+            onEvent('execution', { agent: 'claude', phase: 'completed', ok: c.is_error !== true,
+              tool: toolNames.get(c.tool_use_id) || 'tool' });
+            if (c.is_error !== true) continue;
             const t = typeof c.content === 'string' ? c.content : JSON.stringify(c.content ?? '');
             if (TROUBLE_RE.test(t)) reportTrouble(t.match(/[^"\\]*(?:rate.?limit|429|529|fetch failed|failed to fetch|ETIMEDOUT|ECONNRESET|ENOTFOUND|too many requests|overloaded)[^"\\]*/i)?.[0] || t);
           }
@@ -310,53 +502,89 @@ function runClaude(prompt, onEvent = () => {}) {
     child.on('error', (e) => {
       clearTimeout(timer);
       resolve({ ok: false, agent: 'claude', fallbackEligible: true,
-        model: CLAUDE_MODEL, switchReason: `could not start Claude (${e.message})`,
+        model, switchReason: `could not start Claude (${e.message})`,
         text: `bridge error: could not start Claude (${e.message})` });
     });
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (result) {
+      if (activeRun?.interrupt) {
+        resolve({ ok: false, interrupted: true, agent: 'claude', model,
+          fallbackEligible: false, text: activeRun.interrupt.reason });
+      } else if (circuitBroken) {
+        resolve({ ok: false, agent: 'claude', model, fallbackEligible: false,
+          text: `Circuit breaker stopped Claude: ${circuitBroken}. The run was halted to prevent a loop or excess token use.` });
+      } else if (result) {
         if (result.session_id) { state.claudeSessionId = result.session_id; }
         state.lastRunAt = Date.now();
         saveState(state);
         const text = result.result || result.error || '(empty reply)';
+        const unavailable = Boolean(result.is_error && availabilityFailure(text));
         const u = result.usage || {};
         resolve({
           ok: !result.is_error,
           text: String(text),
           costUsd: result.total_cost_usd,
-          agent: 'claude', model: result.model || CLAUDE_MODEL, fallbackEligible: false, tokens: {
+          agent: 'claude', model: result.model || model,
+          fallbackEligible: unavailable,
+          switchReason: unavailable ? String(text).slice(0, 500) : null,
+          resetAtMs: unavailable ? resetAtMs : null,
+          tokens: {
             in: u.input_tokens, out: u.output_tokens,
             cache_read: u.cache_read_input_tokens, cache_write: u.cache_creation_input_tokens,
           },
         });
       } else if (timedOut) {
-        resolve({ ok: false, agent: 'claude', model: CLAUDE_MODEL, fallbackEligible: false, text: `run hit the ${Math.round(CLAUDE_TIMEOUT_MS / 60_000)}-min bridge limit and was stopped — the work up to that point is saved in the session; send a follow-up to resume/finish it.` });
+        resolve({ ok: false, agent: 'claude', model, fallbackEligible: false, text: `run hit the ${Math.round(CLAUDE_TIMEOUT_MS / 60_000)}-min bridge limit and was stopped — the work up to that point is saved in the session; send a follow-up to resume/finish it.` });
       } else if (fallbackRequested) {
-        resolve({ ok: false, agent: 'claude', model: CLAUDE_MODEL, fallbackEligible: true, switchReason: fallbackReason || 'usage limit reached', text: `Claude hit a usage limit and was stopped so the bridge can switch agents.` });
+        resolve({ ok: false, agent: 'claude', model, fallbackEligible: true,
+          switchReason: fallbackReason || 'usage limit reached', resetAtMs,
+          text: `${model} hit a usage limit and paused for model selection.` });
       } else {
         const tail = err.trim().slice(-1500);
-        resolve({ ok: false, agent: 'claude', model: CLAUDE_MODEL, fallbackEligible: false, text: `claude exited (code ${code}) without a result.\n${tail || '(no output)'}` });
+        resolve({ ok: false, agent: 'claude', model, fallbackEligible: false, text: `claude exited (code ${code}) without a result.\n${tail || '(no output)'}` });
       }
     });
   });
 }
 
-function runCodex(prompt, onEvent = () => {}) {
+function runCodex(prompt, onEvent = () => {}, model = CODEX_MODEL, attachments = [], runtime = {}) {
   return new Promise((resolve) => {
-    const phonePrompt = `${prompt}\n\n${chatRulesBase()}\n${modeRules(currentMode())}`;
-    const common = ['--json'];
-    const modelArgs = CODEX_MODEL === 'default' ? [] : ['--model', CODEX_MODEL];
+    const phonePrompt = prompt;
+    const developerInstructions = [chatRulesBase(), modeRules(currentMode()), runtime.trustedBrokerApproval]
+      .filter(Boolean).join('\n\n');
+    // Headless runs have no stdin, so interactive MCP confirmations are
+    // interpreted as "user cancelled MCP tool call". Full CLI access is
+    // required for Robinhood tools; financial authority remains constrained
+    // by the independently injected trading-mode and ticket-confirm rules.
+    const common = ['--json', '--dangerously-bypass-approvals-and-sandbox',
+      '-c', `developer_instructions=${JSON.stringify(developerInstructions)}`];
+    const imageArgs = codexImageArgs(attachments);
     const args = state.codexSessionId
-      ? ['exec', 'resume', ...common, ...modelArgs, '-c', 'sandbox_mode="workspace-write"', state.codexSessionId, phonePrompt]
-      : ['exec', ...common, ...modelArgs, '--sandbox', 'workspace-write', '--cd', DESK_DIR, phonePrompt];
+      ? ['exec', 'resume', ...common, '--model', model, ...imageArgs, state.codexSessionId, phonePrompt]
+      : ['exec', ...common, '--model', model, '--cd', DESK_DIR, ...imageArgs, phonePrompt];
     const child = spawn(CODEX_BIN, args, {
       cwd: DESK_DIR, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, PATH: `${process.env.HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin` },
+      env: managedAgentEnv(),
     });
+    if (activeRun) {
+      activeRun.child = child; activeRun.agent = 'codex'; activeRun.model = model;
+      if (activeRun.interrupt) child.kill('SIGTERM');
+    }
     let buf = '', err = '', eventTail = '', availabilityError = '', finalText = '', sessionId = null, usage = null;
-    let started = false, timedOut = false, settled = false;
+    let started = false, timedOut = false, settled = false, circuitBroken = null;
+    const guard = createRunCircuitBreaker({
+      maxToolCalls: MAX_TOOL_CALLS,
+      maxIdenticalToolCalls: MAX_IDENTICAL_TOOL_CALLS,
+      maxOutputTokens: MAX_STREAM_OUTPUT_TOKENS,
+    });
     const finish = (value) => { if (settled) return; settled = true; resolve(value); };
+    const tripCircuit = (reason) => {
+      if (circuitBroken) return;
+      circuitBroken = reason;
+      onEvent('circuit_breaker', { agent: 'codex', reason, ...guard.snapshot() });
+      child.kill('SIGTERM');
+      setTimeout(() => child.kill('SIGKILL'), 10_000);
+    };
     const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); setTimeout(() => child.kill('SIGKILL'), 10_000); }, CODEX_TIMEOUT_MS);
     child.stdout.on('data', (d) => {
       buf += d; let nl;
@@ -364,9 +592,35 @@ function runCodex(prompt, onEvent = () => {}) {
         const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
         let ev; try { ev = JSON.parse(line); } catch { continue; }
         eventTail = (eventTail + '\n' + line).slice(-6000);
-        if (!started) { started = true; onEvent('started', { agent: 'codex', model: CODEX_MODEL }); }
-        if (ev.type === 'thread.started') sessionId = ev.thread_id || ev.thread?.id || sessionId;
-        if (ev.type === 'item.completed' && ev.item?.type === 'agent_message') finalText = ev.item.text || finalText;
+        if (!started) { started = true; onEvent('started', { agent: 'codex', model }); }
+        if (ev.type === 'thread.started') {
+          sessionId = ev.thread_id || ev.thread?.id || sessionId;
+          if (sessionId) { state.codexSessionId = sessionId; saveState(state); }
+        }
+        if (ev.type === 'item.started' && ['command_execution', 'mcp_tool_call', 'web_search'].includes(ev.item?.type)) {
+          const item = ev.item || {};
+          const tool = item.type === 'command_execution' ? 'command'
+            : item.type === 'mcp_tool_call' ? `${item.server || 'mcp'}.${item.tool || 'tool'}` : 'web search';
+          const summary = item.type === 'command_execution' ? String(item.command || '').replace(/\s+/g, ' ').slice(0, 900) : '';
+          onEvent('execution', { agent: 'codex', phase: 'started', tool, summary });
+          const toolStop = guard.observeTool(JSON.stringify([
+            ev.item.type, ev.item.server, ev.item.tool, ev.item.arguments, ev.item.command,
+          ]));
+          if (toolStop) { tripCircuit(toolStop); continue; }
+        }
+        if (ev.type === 'item.completed' && ['command_execution', 'mcp_tool_call', 'web_search'].includes(ev.item?.type)) {
+          const item = ev.item || {};
+          const tool = item.type === 'command_execution' ? 'command'
+            : item.type === 'mcp_tool_call' ? `${item.server || 'mcp'}.${item.tool || 'tool'}` : 'web search';
+          const failed = item.status === 'failed' || (Number.isInteger(item.exit_code) && item.exit_code !== 0);
+          onEvent('execution', { agent: 'codex', phase: 'completed', ok: !failed, tool,
+            summary: Number.isInteger(item.exit_code) ? `exit ${item.exit_code}` : String(item.status || '') });
+        }
+        if (ev.type === 'item.completed' && ev.item?.type === 'agent_message') {
+          finalText = ev.item.text || finalText;
+          const outputStop = guard.observeOutputTokens(Math.ceil(String(ev.item.text || '').length / 4));
+          if (outputStop) { tripCircuit(outputStop); continue; }
+        }
         if (ev.type === 'turn.completed') usage = ev.usage || usage;
         const unavailable = codexAvailabilityError(ev);
         if (unavailable) {
@@ -376,21 +630,36 @@ function runCodex(prompt, onEvent = () => {}) {
       }
     });
     child.stderr.on('data', (d) => { err += d; if (err.length > 20_000) err = err.slice(-10_000); });
-    child.on('error', (e) => { clearTimeout(timer); finish({ ok: false, agent: 'codex', model: CODEX_MODEL, fallbackEligible: true, switchNotified: true, switchReason: `could not start Codex (${e.message})`, text: `could not start Codex (${e.message})` }); });
+    child.on('error', (e) => { clearTimeout(timer); finish({ ok: false, agent: 'codex', model, fallbackEligible: true, switchNotified: true, switchReason: `could not start Codex (${e.message})`, text: `could not start Codex (${e.message})` }); });
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (finalText) {
+      if (activeRun?.interrupt) {
+        finish({ ok: false, interrupted: true, agent: 'codex', model,
+          fallbackEligible: false, text: activeRun.interrupt.reason });
+      } else if (circuitBroken) {
+        finish({ ok: false, agent: 'codex', model, fallbackEligible: false,
+          text: `Circuit breaker stopped Codex: ${circuitBroken}. The run was halted to prevent a loop or excess token use.` });
+      } else if (finalText) {
+        if (availabilityError) {
+          finish({
+            ok: false,
+            agent: 'codex', model, fallbackEligible: true,
+            switchReason: availabilityError.slice(-1500),
+            text: finalText,
+          });
+          return;
+        }
         if (sessionId) state.codexSessionId = sessionId;
         state.lastRunAt = Date.now(); state.lastAgent = 'codex'; saveState(state);
         finish({ ok: true, agent: 'codex', fallbackEligible: false, text: finalText,
-                 model: CODEX_MODEL,
+                 model,
                  tokens: usage ? { in: usage.input_tokens, out: usage.output_tokens,
                    cache_read: usage.cached_input_tokens } : undefined });
       } else {
         const detail = (err || eventTail || buf).trim().slice(-1500) || `Codex exited ${code} without a final message`;
         const unavailable = (availabilityError || err).trim();
-        finish({ ok: false, agent: 'codex', fallbackEligible: !timedOut && (code !== 0 || Boolean(unavailable && CODEX_UNAVAILABLE_RE.test(unavailable))),
-                 model: CODEX_MODEL,
+        finish({ ok: false, agent: 'codex', fallbackEligible: !timedOut && Boolean(unavailable && CODEX_UNAVAILABLE_RE.test(unavailable)),
+                 model,
                  switchNotified: Boolean(unavailable && CODEX_UNAVAILABLE_RE.test(unavailable)),
                  switchReason: unavailable && CODEX_UNAVAILABLE_RE.test(unavailable) ? unavailable.slice(-1500) : null,
                  text: timedOut ? `Codex hit the ${Math.round(CODEX_TIMEOUT_MS / 60_000)}-minute bridge limit.` : detail });
@@ -399,66 +668,264 @@ function runCodex(prompt, onEvent = () => {}) {
   });
 }
 
-async function runPreferredAgent(prompt, onEvent = () => {}) {
+let codexCatalogCache = { at: 0, models: [] };
+
+function currentCodexModels() {
+  if (Date.now() - codexCatalogCache.at < 5 * 60_000 && codexCatalogCache.models.length) {
+    return codexCatalogCache.models;
+  }
+  const result = spawnSync(CODEX_BIN, ['debug', 'models'], {
+    cwd: DESK_DIR,
+    env: managedAgentEnv(),
+    encoding: 'utf8',
+    timeout: 10_000,
+    maxBuffer: 2 * 1024 * 1024,
+  });
+  const models = parseCodexModelCatalog(result.status === 0 ? result.stdout : '', CODEX_MODEL);
+  codexCatalogCache = { at: Date.now(), models };
+  return models;
+}
+
+function createPendingModelSwitch(last, prompt, history, attachments = []) {
+  const failedAgent = last.agent === 'claude' ? 'claude' : 'codex';
+  const failedModel = last.model || (failedAgent === 'claude' ? CLAUDE_MODEL : CODEX_MODEL);
+  const choiceSet = buildModelChoiceSet({
+    failedAgent,
+    failedModel,
+    claudeModels: CLAUDE_MODEL_CANDIDATES,
+    codexModels: currentCodexModels(),
+  });
+  return {
+    failedAgent,
+    failedModel,
+    reason: String(last.switchReason || last.text || 'model unavailable').replace(/\s+/g, ' ').slice(0, 500),
+    resetAtMs: Number.isFinite(last.resetAtMs) ? last.resetAtMs : null,
+    prompt,
+    recentContext: compactHistory(history),
+    ...choiceSet,
+    page: 1,
+    requestedAt: new Date().toISOString(),
+    attachments: attachments.slice(0, MAX_INBOUND_IMAGES)
+      .map((item) => ({ path: item.path, mime: item.mime, bytes: item.bytes })),
+  };
+}
+
+async function runAutomaticModelPlan(prompt, onEvent, attachments, preferredAgent, options = {}) {
   const runners = { codex: runCodex, claude: runClaude };
-  const preference = state.agentPreference || 'auto';
-  const order = preference === 'auto' ? AGENT_PRIORITY : [preference];
+  if (options.resetSessions || options.resetBrokerSession) {
+    state.sessionId = null;
+    state.claudeSessionId = null;
+    state.codexSessionId = null;
+    saveState(state);
+    logEvent('scheduled_sessions_reset', { kind: options.scheduledKind || null });
+  }
+  const plan = buildInterleavedModelPlan({
+    preferredAgent,
+    defaultClaudeModel: options.preferredChoice?.agent === 'claude'
+      ? options.preferredChoice.model : CLAUDE_MODEL,
+    defaultCodexModel: options.preferredChoice?.agent === 'codex'
+      ? options.preferredChoice.model : CODEX_MODEL,
+    claudeModels: CLAUDE_MODEL_CANDIDATES,
+    codexModels: currentCodexModels(),
+    maxPerAgent: 3,
+  }).filter((choice) => runners[choice.agent]);
+  const runLabel = options.scheduledKind ? 'scheduled run' : 'full-auto run';
+  const attemptedAgents = new Set();
+  const execution = await executeAvailabilityPlan({
+    plan,
+    prompt,
+    handoffPrompt: (last, choice, originalPrompt) => options.trustedBrokerApproval
+      ? originalPrompt
+      : automaticModelHandoffPrompt({
+          last, choice, prompt: originalPrompt, runLabel,
+          reconcileBroker: options.reconcileBroker === true,
+          recentContext: options.recentContext || '',
+        }),
+    onSwitch: (last, choice) => {
+      onEvent('switch', {
+        from: { name: last.agent, model: last.model },
+        to: { name: choice.agent, model: choice.model },
+        reason: last.switchReason || last.text || 'model unavailable',
+        restart: false,
+        automatic: true,
+      });
+    },
+    onAttempt: (choice, index) => {
+      // A different agent cannot continue the current agent's session. Its
+      // previously saved phone session may be unrelated and expensive to replay,
+      // so start clean on first entry; later returns in this plan resume the
+      // session created for this same fallback chain.
+      if (!attemptedAgents.has(choice.agent) && attemptedAgents.size > 0) {
+        if (choice.agent === 'claude') state.claudeSessionId = null;
+        else state.codexSessionId = null;
+        saveState(state);
+        logEvent('automatic_target_session_reset', { agent: choice.agent, run: runLabel });
+      }
+      attemptedAgents.add(choice.agent);
+      logEvent(options.scheduledKind ? 'scheduled_model_attempt' : 'full_auto_model_attempt', {
+        attempt: index + 1, total: plan.length,
+        agent: choice.agent, model: choice.model,
+      });
+    },
+    runAttempt: async (choice, routedPrompt) => {
+      const brokerPreflight = createBrokerPreflightTracker();
+      const trackedEvent = (kind, detail) => {
+        brokerPreflight.observe(kind, detail);
+        onEvent(kind, detail);
+      };
+      let result = await runners[choice.agent](routedPrompt, trackedEvent, choice.model, attachments, {
+        trustedBrokerApproval: options.trustedBrokerApproval,
+      });
+      if (result.ok && shouldFallbackForBroker(prompt, result.text)) {
+        result = {
+          ...result,
+          ok: false,
+          fallbackEligible: true,
+          switchReason: `${agentLabel(choice.agent, result.model)} could not access live broker tools`,
+          text: `${agentLabel(choice.agent, result.model)} reported that live broker tools are unavailable.`,
+        };
+      }
+      if (result.ok && options.scheduledKind && options.scheduledKind !== 'test' && !brokerPreflight.attempted) {
+        onEvent('trouble', 'Scheduled report missed its Robinhood MCP preflight; correcting before delivery.');
+        logEvent('scheduled_broker_preflight_missing', {
+          kind: options.scheduledKind, agent: choice.agent, model: choice.model,
+        });
+        const correction = await runners[choice.agent](
+          scheduledBrokerCorrectionPrompt(), trackedEvent, choice.model, attachments,
+        );
+        if (correction.ok && brokerPreflight.attempted) result = correction;
+        else if (correction.fallbackEligible) result = correction;
+        else {
+          result = {
+            ...correction,
+            ok: false,
+            fallbackEligible: false,
+            text: 'Scheduled report blocked: no Robinhood MCP get_accounts preflight was observed after correction.',
+          };
+        }
+      }
+      if (result.ok && options.scheduledKind && options.scheduledKind !== 'test') {
+        result = {
+          ...result,
+          broker_mcp_preflight: brokerPreflight.completed
+            ? (brokerPreflight.succeeded ? 'succeeded' : 'failed') : 'started',
+        };
+      }
+      return result;
+    },
+  });
+  const { last, attempts, firstAvailabilityFailure } = execution;
+  if (last.ok) {
+    const automaticFallback = attempts > 1 && options.persistFallbackChoice && firstAvailabilityFailure
+      ? {
+          agent: last.agent,
+          model: last.model,
+          defaultAgent: options.defaultAgent || preferredAgent,
+          failedAgent: firstAvailabilityFailure.agent,
+          failedModel: firstAvailabilityFailure.model,
+          resetAtMs: firstAvailabilityFailure.resetAtMs || null,
+          selectedAt: new Date().toISOString(),
+          automatic: true,
+        }
+      : null;
+    return { ...last, automaticFallback, modelPlan: plan, attempts };
+  }
+  if (!execution.exhausted) return { ...last, modelPlan: plan, attempts };
+  return {
+    ...last,
+    fallbackEligible: false,
+    modelPlan: plan,
+    attempts,
+    text: `All ${plan.length} ${runLabel} model candidates were unavailable. Last error: ${last.text}`,
+  };
+}
+
+async function runPreferredAgent(prompt, onEvent = () => {}, forcedChoice = null, attachments = [], options = {}) {
+  const runners = { codex: runCodex, claude: runClaude };
+  const available = [...new Set([...AGENT_PRIORITY, ...Object.keys(runners)])]
+    .filter((name) => runners[name]);
+  const preference = available.includes(state.agentPreference) ? state.agentPreference : available[0];
+  const configuredOrder = preferredAgentOrder(preference, available);
+  const history = Array.isArray(state.recentHistory) ? state.recentHistory.slice(-8) : [];
+  const brokerKind = options.brokerKind || brokerRequestKind(prompt, history);
+  const temporaryChoice = !forcedChoice && !options.autoModelFallback
+    ? temporaryChoiceForRun(state.temporaryModelChoice, preference, Boolean(brokerKind)) : null;
+  const effectiveChoice = forcedChoice || temporaryChoice;
+  let order = effectiveChoice ? [effectiveChoice.agent] : configuredOrder;
+  if (!effectiveChoice && brokerKind && runners[BROKER_AGENT]) {
+    order = prioritizeBrokerAgent(order, BROKER_AGENT, brokerKind);
+  }
+  if (shouldAutoModelFallback(currentMode(), options.autoModelFallback)) {
+    const preferredAgent = options.preferredAgent || order[0] || preference;
+    const preferredChoice = effectiveChoice || {
+      agent: preferredAgent,
+      model: preferredAgent === 'codex' ? CODEX_MODEL : CLAUDE_MODEL,
+    };
+    const routedPrompt = brokerKind && !options.trustedBrokerApproval
+      ? brokerFirstPrompt(prompt, brokerKind, history) : prompt;
+    return runAutomaticModelPlan(routedPrompt, onEvent, attachments, preferredAgent, {
+      ...options,
+      preferredChoice,
+      defaultAgent: preference,
+      persistFallbackChoice: !options.scheduledKind && (!brokerKind || preferredAgent === preference),
+      reconcileBroker: currentMode() === 'full',
+      recentContext: compactHistory(history),
+    });
+  }
   let last = { ok: false, text: 'No configured agent is available.' };
-  let restartAfterSwitch = false;
-  let lastAttempt = state.lastAgent ? { name: state.lastAgent, model: state.lastAgent === 'codex' ? CODEX_MODEL : CLAUDE_MODEL } : null;
+  let attempts = 0;
+  const brokerSessionsReset = new Set();
   for (const name of order) {
     const runner = runners[name];
     if (!runner) continue;
-    const history = Array.isArray(state.recentHistory) ? state.recentHistory.slice(-8) : [];
-    const routedPrompt = lastAttempt && lastAttempt.name !== name && history.length
-      ? handoffPrompt({
-        from: lastAttempt,
-        to: { name, model: name === 'codex' ? CODEX_MODEL : CLAUDE_MODEL },
-        reason: last.switchReason || 'previous agent ended early',
-        prompt,
-        history,
-        restart: restartAfterSwitch,
-      })
-      : prompt;
-    last = await runner(routedPrompt, onEvent);
-    lastAttempt = { name: last.agent || name, model: last.model || (name === 'codex' ? CODEX_MODEL : CLAUDE_MODEL) };
-    if (last.ok || !last.fallbackEligible) return last;
-    const next = order.slice(order.indexOf(name) + 1).find(x => runners[x]);
-    if (next) {
-      const toModel = next === 'codex' ? CODEX_MODEL : CLAUDE_MODEL;
-      const reason = last.switchReason || last.text || 'agent unavailable';
-      log(`agent fallback: ${name} -> ${next}: ${String(last.text).slice(0, 180)}`);
-      logEvent('agent_fallback', { from: name, to: next, reason: String(last.text).slice(0, 500) });
-      if (!last.switchNotified) {
-        onEvent('switch', {
-          from: { name, model: last.model || (name === 'codex' ? CODEX_MODEL : CLAUDE_MODEL) },
-          to: { name: next, model: toModel },
-          reason,
-          restart: restartAfterSwitch,
-        });
-      }
-      restartAfterSwitch = false;
+    if (attempts >= MAX_AGENT_ATTEMPTS) {
+      const reason = `agent-attempt limit reached (${attempts}/${MAX_AGENT_ATTEMPTS})`;
+      onEvent('circuit_breaker', { agent: name, reason });
+      return { ok: false, agent: last.agent || name, model: last.model,
+        fallbackEligible: false, text: `Circuit breaker stopped routing: ${reason}.` };
     }
+    attempts++;
+    if (options.resetBrokerSession && !brokerSessionsReset.has(name)) {
+      if (name === 'claude') state.claudeSessionId = null;
+      else state.codexSessionId = null;
+      brokerSessionsReset.add(name);
+      saveState(state);
+      logEvent('broker_execution_session_reset', { agent: name });
+    }
+    const basePrompt = brokerKind && !options.trustedBrokerApproval
+      ? brokerFirstPrompt(prompt, brokerKind, history) : prompt;
+    const chosenModel = effectiveChoice?.agent === name
+      ? effectiveChoice.model : (name === 'codex' ? CODEX_MODEL : CLAUDE_MODEL);
+    last = await runner(basePrompt, onEvent, chosenModel, attachments, {
+      trustedBrokerApproval: options.trustedBrokerApproval,
+    });
+    if (last.ok && shouldFallbackForBroker(prompt, last.text)) {
+      last = {
+        ...last,
+        ok: false,
+        fallbackEligible: true,
+        switchReason: `${agentLabel(name, last.model)} could not access live broker tools`,
+        text: `${agentLabel(name, last.model)} reported that live broker tools are unavailable.`,
+      };
+    }
+    if (last.ok || !last.fallbackEligible) return last;
+    const pendingModelSwitch = createPendingModelSwitch(last, prompt, history, attachments);
+    return {
+      ...last,
+      pausedForModel: true,
+      pendingModelSwitch,
+      text: formatModelChoiceForPhone(pendingModelSwitch),
+    };
   }
   return last;
 }
 
 // ---------------------------------------------------------- providers ------
-function chunkText(text, maxChars) {
-  const chunks = [];
-  let rest = String(text);
-  while (rest.length > maxChars) {
-    let cut = rest.lastIndexOf('\n\n', maxChars);
-    if (cut < maxChars * 0.5) cut = rest.lastIndexOf('\n', maxChars);
-    if (cut < maxChars * 0.5) cut = maxChars;
-    chunks.push(rest.slice(0, cut));
-    rest = rest.slice(cut).trimStart();
-  }
-  if (rest) chunks.push(rest);
-  return chunks;
+// --- twilio ---
+function twilioAuthorization() {
+  return 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 }
 
-// --- twilio ---
 function twilioVerify(params, header) {
   // signature = Base64(HMAC-SHA1(auth_token, PUBLIC_URL + sorted(key+value)))
   let data = PUBLIC_URL;
@@ -485,7 +952,7 @@ async function twilioSend(toDigits, body) {
     {
       method: 'POST',
       headers: {
-        Authorization: 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64'),
+        Authorization: twilioAuthorization(),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams(params),
@@ -493,6 +960,80 @@ async function twilioSend(toDigits, body) {
   );
   if (!res.ok) log(`twilio API ${res.status}: ${(await res.text()).slice(0, 300)}`);
   return res.ok;
+}
+
+async function twilioPollingImages(message) {
+  if (Number(message.num_media || 0) < 1 || !message.subresource_uris?.media) return [];
+  const response = await fetch(`https://api.twilio.com${message.subresource_uris.media}`, {
+    headers: { Authorization: twilioAuthorization() },
+  });
+  if (!response.ok) throw new Error(`Twilio media list returned ${response.status}`);
+  const body = await response.json();
+  const sources = (body.media_list || []).filter((item) => normalizedImageType(item.content_type))
+    .slice(0, MAX_INBOUND_IMAGES).map((item) => ({
+      url: `https://api.twilio.com${String(item.uri || '').replace(/\.json$/, '')}`,
+      mime: item.content_type,
+      headers: { Authorization: twilioAuthorization() },
+      provider: 'twilio',
+    }));
+  return collectInboundImages(sources);
+}
+
+async function twilioWebhookImages(params) {
+  const sources = [];
+  for (let index = 0; index < Math.min(Number(params.NumMedia || 0), MAX_INBOUND_IMAGES); index++) {
+    const mime = normalizedImageType(params[`MediaContentType${index}`]);
+    const url = params[`MediaUrl${index}`];
+    if (mime && url) sources.push({ url, mime, headers: { Authorization: twilioAuthorization() }, provider: 'twilio' });
+  }
+  return collectInboundImages(sources);
+}
+
+async function fetchAndStoreInboundImage({ url, mime, headers = {}, provider }) {
+  const declared = normalizedImageType(mime);
+  if (!declared) throw new Error('unsupported image type');
+  const target = new URL(url);
+  if (target.protocol !== 'https:') throw new Error('image URL must use HTTPS');
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(new Error('image download timed out')), 45_000);
+  try {
+    const response = await fetch(target, { headers, signal: ac.signal, redirect: 'follow' });
+    if (!response.ok) throw new Error(`image download returned ${response.status}`);
+    const length = Number(response.headers.get('content-length') || 0);
+    if (length > MAX_INBOUND_IMAGE_BYTES) throw new Error('image exceeds size limit');
+    const responseType = normalizedImageType(response.headers.get('content-type'));
+    const actualType = responseType || declared;
+    if (responseType && responseType !== declared) throw new Error('image content type changed during download');
+    const chunks = [];
+    let total = 0;
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('image response has no body');
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_INBOUND_IMAGE_BYTES) {
+        await reader.cancel('image exceeds size limit');
+        throw new Error('image exceeds size limit');
+      }
+      chunks.push(Buffer.from(value));
+    }
+    const bytes = Buffer.concat(chunks, total);
+    const saved = saveInboundImage(INBOUND_MEDIA_DIR, bytes, actualType);
+    logEvent('inbound_image_saved', { provider, mime: saved.mime, bytes: saved.bytes });
+    return saved;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function collectInboundImages(sources = []) {
+  const saved = [];
+  for (const source of sources.slice(0, MAX_INBOUND_IMAGES)) {
+    try { saved.push(await fetchAndStoreInboundImage(source)); }
+    catch (e) { logEvent('inbound_image_rejected', { provider: source.provider, error: e.message }); }
+  }
+  return saved;
 }
 
 // --- telegram ---
@@ -548,7 +1089,27 @@ async function telegramSend(chatId, text) {
   return true;
 }
 
-const MIME = { '.html': 'text/html', '.pdf': 'application/pdf', '.svg': 'image/svg+xml', '.png': 'image/png', '.csv': 'text/csv', '.md': 'text/markdown' };
+async function telegramCreateLive(chatId, text) {
+  const result = await telegramApi(
+    'sendMessage', { chat_id: Number(chatId), text }, 12_000, 1);
+  if (!result.ok || !result.result?.message_id) {
+    throw new Error(`Telegram live status rejected: ${result.description || 'unknown error'}`);
+  }
+  return { chatId: Number(chatId), messageId: result.result.message_id };
+}
+
+async function telegramEditLive(handle, text) {
+  const result = await telegramApi('editMessageText', {
+    chat_id: handle.chatId,
+    message_id: handle.messageId,
+    text,
+  }, 12_000, 0);
+  // Telegram returns "message is not modified" for identical cards. Treat it
+  // as success so a harmless timing race never breaks the run monitor.
+  return Boolean(result.ok || /message is not modified/i.test(result.description || ''));
+}
+
+const MIME = { '.html': 'text/html', '.pdf': 'application/pdf', '.svg': 'image/svg+xml', '.png': 'image/png', '.csv': 'text/csv', '.md': 'text/markdown', '.txt': 'text/plain' };
 
 async function telegramSendDocument(chatId, filePath, caption) {
   const fd = new FormData();
@@ -571,6 +1132,28 @@ async function telegramSendDocument(chatId, filePath, caption) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function telegramInboundImages(message) {
+  const candidates = [];
+  const photo = Array.isArray(message.photo) ? message.photo.at(-1) : null;
+  if (photo?.file_id) candidates.push({ fileId: photo.file_id, mime: 'image/jpeg' });
+  const documentType = normalizedImageType(message.document?.mime_type);
+  if (message.document?.file_id && documentType) {
+    candidates.push({ fileId: message.document.file_id, mime: documentType });
+  }
+  const sources = [];
+  for (const candidate of candidates.slice(0, MAX_INBOUND_IMAGES)) {
+    const result = await telegramApi('getFile', { file_id: candidate.fileId }, 15_000, 1);
+    const filePath = result.result?.file_path;
+    if (!result.ok || !filePath) continue;
+    sources.push({
+      url: `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`,
+      mime: candidate.mime,
+      provider: 'telegram',
+    });
+  }
+  return collectInboundImages(sources);
 }
 
 // Pull "FILE: /abs/path" directives out of a reply. Only files inside the desk
@@ -610,9 +1193,22 @@ async function telegramPollLoop() {
       for (const u of j.result || []) {
         offset = Math.max(offset, u.update_id + 1);
         const m = u.message;
-        if (!m?.text || !m.from) continue;
+        if (!m?.from) continue;
         if (m.date < startedSec) continue; // stale backlog — acknowledged, not processed
-        enqueue(`tg${m.message_id}-${m.chat.id}`, String(m.from.id), m.text.trim(), String(m.chat.id), m.date * 1000);
+        const from = String(m.from.id);
+        if (from !== ALLOWED_SENDER) { log('ignored Telegram media/message from non-allowlisted sender'); continue; }
+        const hasImage = Boolean(m.photo?.length || /^image\//i.test(String(m.document?.mime_type || '')));
+        const text = String(m.text || m.caption || '').trim();
+        if (!text && !hasImage) continue;
+        let attachments = [];
+        try { attachments = hasImage ? await telegramInboundImages(m) : []; }
+        catch (e) { logEvent('inbound_image_error', { provider: 'telegram', error: e.message }); }
+        if (hasImage && !attachments.length) {
+          await sendText(String(m.chat.id), 'Image rejected or unavailable. Send JPEG, PNG, WebP, or GIF up to 20 MB.');
+          continue;
+        }
+        enqueue(`tg${m.message_id}-${m.chat.id}`, from,
+          text || 'Inspect the attached image and explain what matters.', String(m.chat.id), m.date * 1000, attachments);
       }
     } catch (e) {
       failures++;
@@ -641,13 +1237,30 @@ async function metaGraphPost(body) {
   return res.ok;
 }
 
+async function metaInboundImages(message) {
+  if (message.type !== 'image' || !message.image?.id) return [];
+  const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${message.image.id}`, {
+    headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` },
+  });
+  if (!response.ok) throw new Error(`Meta media lookup returned ${response.status}`);
+  const metadata = await response.json();
+  const mime = normalizedImageType(metadata.mime_type);
+  if (!mime || !metadata.url) return [];
+  return collectInboundImages([{
+    url: metadata.url,
+    mime,
+    headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` },
+    provider: 'meta',
+  }]);
+}
+
 // --- discord ---
 async function discordApi(route, options = {}) {
   const res = await fetch(`https://discord.com/api/v10${route}`, {
     ...options,
     headers: {
       Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
-      'User-Agent': 'AITraderToolboxBridge/3.0',
+      'User-Agent': 'TradingDeskBridge/3.0',
       ...(options.headers || {}),
     },
   });
@@ -673,6 +1286,14 @@ async function discordSendDocument(channelId, filePath, caption) {
   return res.ok;
 }
 
+async function discordInboundImages(message) {
+  const sources = (message.attachments || [])
+    .filter((item) => normalizedImageType(item.content_type) && item.url)
+    .slice(0, MAX_INBOUND_IMAGES)
+    .map((item) => ({ url: item.url, mime: item.content_type, provider: 'discord' }));
+  return collectInboundImages(sources);
+}
+
 async function discordPollLoop() {
   log(`discord polling mode — channel ${DISCORD_CHANNEL_ID}, every ${POLL_MS / 1000}s`);
   let after = state.discordLastMessageId || null;
@@ -687,8 +1308,21 @@ async function discordPollLoop() {
       for (const m of messages.reverse()) {
         // On first install, establish a watermark without replaying the latest
         // historical command into a potentially resumable trading session.
-        if (!initializing && !m.author?.bot && m.content?.trim()) {
-          enqueue(`discord-${m.id}`, String(m.author.id), m.content.trim(), String(m.channel_id), Date.parse(m.timestamp));
+        if (!initializing && !m.author?.bot && String(m.author?.id) === ALLOWED_SENDER) {
+          const hasImage = (m.attachments || []).some((item) => /^image\//i.test(String(item.content_type || '')));
+          const text = String(m.content || '').trim();
+          if (text || hasImage) {
+            let attachments = [];
+            try { attachments = hasImage ? await discordInboundImages(m) : []; }
+            catch (e) { logEvent('inbound_image_error', { provider: 'discord', error: e.message }); }
+            if (hasImage && !attachments.length) {
+              await sendText(String(m.channel_id), 'Image rejected or unavailable. Send JPEG, PNG, WebP, or GIF up to 20 MB.');
+            } else {
+              enqueue(`discord-${m.id}`, String(m.author.id),
+                text || 'Inspect the attached image and explain what matters.',
+                String(m.channel_id), Date.parse(m.timestamp), attachments);
+            }
+          }
         }
         if (!after || BigInt(m.id) > BigInt(after)) after = m.id;
       }
@@ -713,6 +1347,8 @@ const messengers = {
     maxTextChars: 3900,
     send: telegramSend,
     sendFile: telegramSendDocument,
+    createLive: telegramCreateLive,
+    editLive: telegramEditLive,
     typing: (to) => telegramApi('sendChatAction', { chat_id: Number(to), action: 'typing' }).catch(() => {}),
     start: telegramPollLoop,
     mode: 'long-poll',
@@ -745,7 +1381,11 @@ const messengers = {
 const messenger = messengers[PROVIDER];
 
 async function sendText(to, text) {
-  for (const body of chunkText(text, messenger.maxTextChars)) await messenger.send(to, body);
+  const safe = sanitizePhoneText(text, { maxChars: messenger.maxTextChars });
+  if (safe.redactions || safe.shortened) {
+    logEvent('phone_output_sanitized', { redactions: safe.redactions, shortened: safe.shortened });
+  }
+  if (safe.text) await messenger.send(to, safe.text);
 }
 
 async function sendStatus(to, kind, text) {
@@ -758,6 +1398,101 @@ async function sendStatus(to, kind, text) {
     logEvent('status_send_error', { kind, provider: PROVIDER, error: e.message });
     return false;
   }
+}
+
+async function createLiveRunMonitor(to, view) {
+  if (!messenger.createLive || !messenger.editLive) return null;
+  let handle;
+  try {
+    const safe = sanitizePhoneText(formatRemoteRunView(view), { maxChars: messenger.maxTextChars });
+    handle = await messenger.createLive(to, safe.text);
+  } catch (e) {
+    logEvent('live_monitor_error', { phase: 'create', error: e.message });
+    return null;
+  }
+  let timer = null;
+  let closed = false;
+  let lastText = '';
+  const flush = async () => {
+    timer = null;
+    const safe = sanitizePhoneText(formatRemoteRunView(view), { maxChars: messenger.maxTextChars });
+    if (!safe.text || safe.text === lastText) return;
+    lastText = safe.text;
+    try { await messenger.editLive(handle, safe.text); }
+    catch (e) { logEvent('live_monitor_error', { phase: 'edit', error: e.message }); }
+  };
+  return {
+    event(kind, detail) {
+      if (closed) return;
+      updateRemoteRunView(view, kind, detail);
+      if (!timer) timer = setTimeout(flush, 1500);
+    },
+    refresh() {
+      if (!closed && !timer) timer = setTimeout(flush, 50);
+    },
+    async finish(status, result = '') {
+      closed = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+      finishRemoteRunView(view, status, result);
+      await flush();
+    },
+  };
+}
+
+async function deliverExecutionTranscript(to, transcript, ok) {
+  if (!transcript || PHONE_EXECUTION_LOG === 'off') return false;
+  if (PHONE_EXECUTION_LOG === 'errors' && ok) return false;
+  if (!messenger.sendFile) {
+    await sendText(to, 'Agent execution log is saved on the desk; this messenger does not support file delivery yet.');
+    return false;
+  }
+  const sent = await messenger.sendFile(to, transcript.path, 'Agent execution log');
+  logEvent('execution_log_sent', { ok: Boolean(sent), provider: PROVIDER, file: path.basename(transcript.path) });
+  return Boolean(sent);
+}
+
+async function deliverChangeReview(to, snapshotDir, request, outcome, reason = {}) {
+  let review;
+  try {
+    review = buildChangeReview({
+      root: DESK_DIR, snapshotDir, outputDir: CHANGE_REVIEW_DIR, request, outcome, reason,
+    });
+  } catch (e) {
+    logEvent('change_review_error', { error: e.message });
+    return null;
+  }
+  if (!review) return null;
+  try {
+    if (messenger.sendFile) {
+      await messenger.sendFile(to, review.path, 'Code change review');
+    } else {
+      const shown = review.files.slice(0, 4).join(', ');
+      await sendText(to, `Code changes: ${shown}${review.files.length > 4 ? ` +${review.files.length - 4} more` : ''}\nDetailed diff saved; this messenger cannot receive HTML documents yet.`);
+    }
+  } catch (e) {
+    logEvent('change_review_delivery_error', { provider: PROVIDER, error: e.message });
+    return review;
+  }
+  logEvent('change_review_sent', { provider: PROVIDER, files: review.count, file: path.basename(review.path) });
+  return review;
+}
+
+async function applyDeferredRestart(to, transcript) {
+  if (!fs.existsSync(RESTART_REQUEST_FILE)) return false;
+  let request = {};
+  try { request = JSON.parse(fs.readFileSync(RESTART_REQUEST_FILE, 'utf8')); } catch { /* malformed still means requested */ }
+  try { fs.unlinkSync(RESTART_REQUEST_FILE); } catch { /* helper must still run */ }
+  transcript?.append('ACTIVATE', request.reason || 'bridge update requested');
+  await sendStatus(to, 'restart_scheduled', '♻️ Update complete — activating the new bridge after this reply. New messages will resume automatically.');
+  const helper = spawn(SERVICE_CONTROL, ['activate'], {
+    cwd: BRIDGE_DIR,
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, BRIDGE_MANAGED_RUN: '0', BRIDGE_RESTART_DELAY_S: '2' },
+  });
+  helper.unref();
+  logEvent('restart_scheduled', { requested_at: request.requested_at || null, helper_pid: helper.pid });
+  return true;
 }
 
 // mark inbound message read + typing indicator (meta only; twilio has no equivalent)
@@ -776,34 +1511,249 @@ const seenIds = new Set(); // webhook deliveries can retry — dedup by message 
 let queue = Promise.resolve(); // never run two claude sessions concurrently
 let activeRun = null; // { prompt, startedMs } while a claude run is in flight
 let queueDepth = 0;   // messages waiting behind it
+let availabilityRetryTimer = null;
+let temporaryDiscoveryTimer = null;
 
-async function handleInbound(replyTo, text, sentAtMs = null) {
+function selectedDefaultAgent() {
+  const configured = AGENT_PRIORITY.find((name) => ['codex', 'claude'].includes(name)) || 'codex';
+  return ['codex', 'claude'].includes(state.agentPreference) ? state.agentPreference : configured;
+}
+
+function clearAvailabilityRecovery() {
+  if (availabilityRetryTimer) clearTimeout(availabilityRetryTimer);
+  availabilityRetryTimer = null;
+  delete state.availabilityRecovery;
+  saveState(state);
+}
+
+function probeClaudeAvailability(model) {
+  return new Promise((resolve) => {
+    const child = spawn(CLAUDE_BIN, [
+      '-p', 'Availability check. Reply exactly AVAILABLE.',
+      '--output-format', 'stream-json', '--verbose', '--model', model,
+      '--no-session-persistence', '--tools', '', '--strict-mcp-config', '--settings', SETTINGS_FILE,
+    ], { cwd: DESK_DIR, stdio: ['ignore', 'pipe', 'pipe'], env: managedAgentEnv() });
+    let buf = '', err = '', timedOut = false, result = null, resetAtMs = null;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      setTimeout(() => child.kill('SIGKILL'), 10_000);
+    }, 90_000);
+    child.stdout.on('data', (data) => {
+      buf += data;
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        let event;
+        try { event = JSON.parse(line); } catch { continue; }
+        if (event.type === 'rate_limit_event' && claudeRateLimitBlocked(event.rate_limit_info)) {
+          resetAtMs = resetSecondsToMs(event.rate_limit_info?.resetsAt) || resetAtMs;
+          child.kill('SIGTERM');
+        }
+        if (event.type === 'result') result = event;
+      }
+      if (buf.length > 50_000) buf = buf.slice(-20_000);
+    });
+    child.stderr.on('data', (data) => { err += data; if (err.length > 20_000) err = err.slice(-10_000); });
+    child.on('error', () => { clearTimeout(timer); resolve({ ok: false, resetAtMs }); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      const failed = timedOut || code !== 0 || result?.is_error === true ||
+        /rate.?limit|quota|unavailable|authentication/i.test(`${result?.error || ''}\n${err}`);
+      resolve({ ok: !failed, resetAtMs });
+    });
+  });
+}
+
+function armAvailabilityRecovery() {
+  if (availabilityRetryTimer) clearTimeout(availabilityRetryTimer);
+  availabilityRetryTimer = null;
+  const recovery = state.availabilityRecovery;
+  if (!recovery) return;
+  const delay = Math.max(1000, Number(recovery.nextAttemptAtMs || Date.now()) - Date.now());
+  availabilityRetryTimer = setTimeout(() => { attemptAvailabilityRecovery().catch((e) => {
+    logEvent('availability_recovery_error', { error: e.message });
+  }); }, delay);
+}
+
+async function attemptAvailabilityRecovery() {
+  const recovery = state.availabilityRecovery;
+  if (!recovery) return;
+  if (!shouldRunRecovery(recovery, selectedDefaultAgent(), Boolean(activeRun))) {
+    if (recovery.defaultAgent !== selectedDefaultAgent()) {
+      logEvent('availability_recovery_cancelled', { reason: 'default_agent_changed' });
+      clearAvailabilityRecovery();
+      return;
+    }
+    recovery.nextAttemptAtMs = Date.now() + 120_000;
+    saveState(state);
+    armAvailabilityRecovery();
+    return;
+  }
+  // Reset times are currently emitted by Claude's rate-limit event. Keep this
+  // branch explicit so future agents need a real availability probe too.
+  const probe = recovery.agent === 'claude'
+    ? await probeClaudeAvailability(recovery.model) : { ok: false, resetAtMs: null };
+  // A manual /agent command can arrive while the probe is running. Its choice
+  // wins; never send a stale restoration notice or alter its routing.
+  if (state.availabilityRecovery !== recovery || recovery.defaultAgent !== selectedDefaultAgent()) return;
+  if (probe.ok) {
+    const replyTo = recovery.replyTo;
+    state.lastAvailabilityRecovery = { agent: recovery.agent, model: recovery.model, restoredAt: new Date().toISOString() };
+    if (state.temporaryModelChoice?.defaultAgent === recovery.defaultAgent) delete state.temporaryModelChoice;
+    clearAvailabilityRecovery();
+    logEvent('availability_recovered', { agent: recovery.agent, model: recovery.model });
+    if (replyTo) await sendStatus(replyTo, 'availability_recovered', `Default ${agentLabel(recovery.agent, recovery.model)} is available again. Future requests use your default.`);
+    return;
+  }
+  recovery.attempts = Number(recovery.attempts || 0) + 1;
+  if (probe.resetAtMs && probe.resetAtMs > Date.now() + 1000) {
+    recovery.resetAtMs = probe.resetAtMs;
+    recovery.nextAttemptAtMs = probe.resetAtMs;
+  } else {
+    recovery.nextAttemptAtMs = recoveryNextAttemptAt(recovery.resetAtMs, recovery.attempts);
+  }
+  saveState(state);
+  logEvent('availability_recovery_retry', { agent: recovery.agent, attempts: recovery.attempts,
+    next_attempt_at: new Date(recovery.nextAttemptAtMs).toISOString() });
+  armAvailabilityRecovery();
+}
+
+function scheduleAvailabilityRecovery(pending, replyTo) {
+  if (!pending?.resetAtMs || pending.failedAgent !== selectedDefaultAgent()) return;
+  state.availabilityRecovery = {
+    agent: pending.failedAgent,
+    model: pending.failedModel,
+    defaultAgent: selectedDefaultAgent(),
+    resetAtMs: pending.resetAtMs,
+    nextAttemptAtMs: recoveryNextAttemptAt(pending.resetAtMs),
+    attempts: 0,
+    replyTo,
+  };
+  saveState(state);
+  logEvent('availability_recovery_scheduled', { agent: pending.failedAgent, model: pending.failedModel,
+    reset_at: new Date(pending.resetAtMs).toISOString() });
+  armAvailabilityRecovery();
+}
+
+function alternativeAgentLabels(preferred) {
+  const available = [...new Set([...AGENT_PRIORITY, 'codex', 'claude'])]
+    .filter((name) => ['codex', 'claude'].includes(name));
+  return preferredAgentOrder(preferred, available).slice(1)
+    .map((name) => agentLabel(name, name === 'codex' ? CODEX_MODEL : CLAUDE_MODEL));
+}
+
+function setDefaultAgentPreference(want) {
+  state.agentPreference = want;
+  delete state.temporaryModelChoice;
+  if (temporaryDiscoveryTimer) { clearTimeout(temporaryDiscoveryTimer); temporaryDiscoveryTimer = null; }
+  if (state.availabilityRecovery) {
+    clearAvailabilityRecovery();
+    logEvent('availability_recovery_cancelled', { reason: 'manual_default_change', preference: want });
+  } else saveState(state);
+  logEvent('agent_preference', { preference: want });
+  return alternativeAgentLabels(want);
+}
+
+function migrateLastHandoffChoice() {
+  if (state.temporaryModelChoice || state.pendingModelSwitch) return false;
+  const choice = handoffChoiceFromState({
+    recentHistory: state.recentHistory,
+    lastRunView: state.lastRunView,
+    defaultAgent: selectedDefaultAgent(),
+    defaultModel: selectedDefaultAgent() === 'claude' ? CLAUDE_MODEL : CODEX_MODEL,
+  });
+  if (!choice) return false;
+  state.temporaryModelChoice = choice;
+  saveState(state);
+  logEvent('temporary_model_migrated', { agent: choice.agent, model: choice.model,
+    default_agent: selectedDefaultAgent() });
+  return true;
+}
+
+function armTemporaryResetDiscovery(delayMs = 2000) {
+  if (temporaryDiscoveryTimer) clearTimeout(temporaryDiscoveryTimer);
+  temporaryDiscoveryTimer = null;
+  const choice = state.temporaryModelChoice;
+  if (!choice || state.availabilityRecovery || choice.defaultAgent !== selectedDefaultAgent() ||
+      choice.failedAgent !== 'claude' || choice.resetAtMs) return;
+  temporaryDiscoveryTimer = setTimeout(async () => {
+    temporaryDiscoveryTimer = null;
+    const current = state.temporaryModelChoice;
+    if (!current || current.selectedAt !== choice.selectedAt) return;
+    if (activeRun) return armTemporaryResetDiscovery(120_000);
+    const probe = await probeClaudeAvailability(current.failedModel || CLAUDE_MODEL);
+    if (state.temporaryModelChoice?.selectedAt !== current.selectedAt ||
+        current.defaultAgent !== selectedDefaultAgent()) return;
+    if (probe.ok) {
+      delete state.temporaryModelChoice;
+      state.lastAvailabilityRecovery = { agent: 'claude', model: current.failedModel || CLAUDE_MODEL,
+        restoredAt: new Date().toISOString() };
+      saveState(state);
+      logEvent('availability_recovered', { agent: 'claude', model: current.failedModel || CLAUDE_MODEL,
+        source: 'handoff_migration' });
+      return;
+    }
+    if (probe.resetAtMs) {
+      current.resetAtMs = probe.resetAtMs;
+      saveState(state);
+      scheduleAvailabilityRecovery({ failedAgent: 'claude', failedModel: current.failedModel || CLAUDE_MODEL,
+        resetAtMs: probe.resetAtMs }, current.replyTo);
+    }
+  }, delayMs);
+}
+
+async function handleInbound(replyTo, text, sentAtMs = null, attachments = [], continuationSnapshotDir = null, runOptions = {}) {
   queueDepth = Math.max(0, queueDepth - 1); // this message just left the queue
   const cmd = text.toLowerCase();
+  const remoteControl = parseRemoteControl(text);
+  if (remoteControl) {
+    if (remoteControl.action === 'status') {
+      return sendText(replyTo, state.lastRunView
+        ? formatRemoteRunView(state.lastRunView)
+        : 'No run is active and no recent run summary is available.');
+    }
+    if (remoteControl.action === 'steer' && !remoteControl.prompt) {
+      return sendText(replyTo, 'Add the new direction after /steer. Example: /steer stop researching and run the tests.');
+    }
+    return sendText(replyTo, 'No run is active. Send the request normally to start one.');
+  }
   if (cmd === '/new') {
     state.sessionId = null; state.claudeSessionId = null; state.codexSessionId = null;
-    state.lastAgent = null; state.recentHistory = []; saveState(state);
+    state.lastAgent = null; state.recentHistory = [];
+    delete state.pendingDecision; delete state.pendingModelSwitch; delete state.lastRunView; saveState(state);
     return sendText(replyTo, 'Fresh sessions started for Codex and Claude. Context cleared.');
   }
   if (cmd === '/agent' || cmd.startsWith('/agent ')) {
     const want = cmd.slice(6).trim();
     if (!want) {
-      return sendText(replyTo, `Agent: ${(state.agentPreference || 'auto').toUpperCase()}\nAUTO order: ${AGENT_PRIORITY.map(a => agentLabel(a, a === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)).join(' → ')}\nSwitch: /agent auto | codex | claude`);
+      const preferred = selectedDefaultAgent();
+      const alternatives = alternativeAgentLabels(preferred);
+      const fallback = currentMode() === 'full'
+        ? `Full-auto fallback continues automatically through available models; other agent: ${alternatives.join(' → ') || 'none available'}`
+        : `Other-agent model choice on failure: ${alternatives.join(' → ') || 'none available'}`;
+      return sendText(replyTo, `Default agent: ${agentLabel(preferred, preferred === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)}\n${fallback}\nSwitch default: /agent codex | claude`);
     }
-    if (!['auto', 'codex', 'claude'].includes(want)) {
-      return sendText(replyTo, `Unknown agent "${want}". Use /agent auto | codex | claude`);
+    if (!['codex', 'claude'].includes(want)) {
+      return sendText(replyTo, `Unknown agent "${want}". Use /agent codex | claude`);
     }
-    state.agentPreference = want; saveState(state);
-    logEvent('agent_preference', { preference: want });
-    const detail = want === 'auto' ? `AUTO order: ${AGENT_PRIORITY.map(a => agentLabel(a, a === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)).join(' → ')}`
-      : `${want} only; automatic fallback disabled`;
-    return sendText(replyTo, `Default agent set: ${want.toUpperCase()}\n${detail}\nApplies to the next message.`);
+    const alternatives = setDefaultAgentPreference(want);
+    const fallback = currentMode() === 'full'
+      ? `Full-auto availability fallback: automatic; other agent: ${alternatives.join(' → ') || 'none available'}`
+      : `Model choice on failure includes: ${alternatives.join(' → ') || 'no other agent'}`;
+    return sendText(replyTo, `Default agent set: ${agentLabel(want, want === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)}\n${fallback}\nApplies to the next message.`);
   }
   if (cmd === '/status' || cmd === '/start') {
     const up = Math.round(process.uptime() / 60);
     const sessions = `Codex ${state.codexSessionId ? state.codexSessionId.slice(0, 8) : 'fresh'} · Claude ${state.claudeSessionId ? state.claudeSessionId.slice(0, 8) : 'fresh'}`;
     const last = state.lastAgent ? agentLabel(state.lastAgent, state.lastAgent === 'codex' ? CODEX_MODEL : CLAUDE_MODEL) : 'none';
-    return sendText(replyTo, `Bridge up ${up}m (${PROVIDER})\nAgent: ${(state.agentPreference || 'auto').toUpperCase()}${state.lastAgent ? ` (last: ${last})` : ''}\nMode: ${currentMode()}\nDesk: ${DESK_DIR}\nSessions: ${sessions}\nCommands: /new /status /agent /mode /help`);
+    const pending = state.pendingModelSwitch ? '\nDecision: waiting for model choice'
+      : state.pendingDecision ? '\nDecision: waiting for /decide' : '';
+    const tickets = state.pendingTicketSet?.status === 'pending'
+      ? `\nReport tickets: ${state.pendingTicketSet.tickets?.length || 0} awaiting approval` : '';
+    const brokerRecovery = ['running', 'waiting_model', 'needs_reconfirmation', 'needs_verification', 'blocked'].includes(state.pendingBrokerExecution?.status)
+      ? `\nBroker execution: ${state.pendingBrokerExecution.status.replaceAll('_', ' ')}` : '';
+    return sendText(replyTo, `Bridge up ${up}m (${PROVIDER})\nDefault agent: ${selectedDefaultAgent().toUpperCase()}${state.lastAgent ? ` (last: ${last})` : ''}\nMode: ${currentMode()}${pending}${tickets}${brokerRecovery}\nDesk: ${DESK_DIR}\nSessions: ${sessions}\nNo active run. Send a request normally to begin.`);
   }
   if (cmd === '/mode' || cmd.startsWith('/mode ')) {
     const want = cmd.slice(5).trim();
@@ -813,10 +1763,110 @@ async function handleInbound(replyTo, text, sentAtMs = null) {
     if (!(want in MODES)) return sendText(replyTo, `Unknown mode "${want}". Use: /mode full | semi | manual`);
     setMode(want);
     logEvent('mode_change', { mode: want });
-    return sendText(replyTo, `Mode set: ${want.toUpperCase()}\n${MODES[want]}\n\nApplies from the next message and the next scheduled run.${want === 'full' ? '\n\n⚠️ Full-auto executes only in the configured execution account without per-order confirmation. Kill switch: /mode manual' : ''}`);
+    return sendText(replyTo, `Mode set: ${want.toUpperCase()}\n${MODES[want]}\n\nApplies from the next message and the next scheduled run.${want === 'full' ? '\n\nAvailability failures switch automatically across up to three models per agent. Broker state is reconciled before continuation.\n⚠️ Full-auto executes only in the configured execution account without asking. Kill switch: /mode manual' : ''}`);
   }
-  if (cmd === '/help') {
-    return sendText(replyTo, `Text anything — it runs on the trading desk through ${agentLabel('codex', CODEX_MODEL)} or ${agentLabel('claude', CLAUDE_MODEL)}.\n\n/agent auto|codex|claude — choose the default agent\n/new — fresh sessions\n/status — bridge health\n/mode — view or set trading mode (full / semi / manual)\n\nAUTO follows ${AGENT_PRIORITY.map(a => agentLabel(a, a === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)).join(' → ')} and falls back only when an agent is unavailable. If a limit hits mid-run, the bridge switches immediately and tells you whether the next agent is continuing context or restarting clean.`);
+  if (['/help', '/commands', 'help', '/'].includes(cmd)) {
+    return sendText(replyTo, formatPhoneHelp());
+  }
+
+  if (isMoreModelsRequest(text)) {
+    const pending = state.pendingModelSwitch;
+    if (!pending) return sendText(replyTo, 'No model choice is waiting. Model alternatives appear when an active model becomes unavailable.');
+    const next = nextModelChoicePage(pending);
+    if (!next) return sendText(replyTo, 'No additional available models were found. Choose one shown or type claude MODEL or codex MODEL.');
+    state.pendingModelSwitch = next;
+    saveState(state);
+    logEvent('model_choices_expanded', { page: next.page, options: next.choices.length,
+      remaining: next.remainingChoices.length });
+    return sendText(replyTo, formatModelChoiceForPhone(next));
+  }
+
+  let agentPrompt = text;
+  let brokerExecution = runOptions.brokerExecution || null;
+  let answeredDecision = false;
+  let answeredModelSwitch = false;
+  let forcedChoice = null;
+  let changeSnapshotDir = continuationSnapshotDir;
+  let inheritedChangeReason = {};
+  let runAttachments = attachments.slice(0, MAX_INBOUND_IMAGES);
+  if (brokerExecution) {
+    agentPrompt = brokerExecution.userText || text;
+  } else if (!runAttachments.length && !text.trim().startsWith('/')) {
+    const approvableTicketSet = !state.pendingTicketSet?.status || state.pendingTicketSet.status === 'pending'
+      ? state.pendingTicketSet : null;
+    const approval = resolveTicketApproval(text, approvableTicketSet);
+    if (approval?.kind === 'clarify') {
+      logEvent('ticket_approval_clarification', { prompt: text.slice(0, 120), ticket_set: state.pendingTicketSet?.id || null });
+      return sendText(replyTo, approval.message);
+    }
+    if (approval?.kind === 'approved') {
+      brokerExecution = {
+        id: crypto.randomUUID(),
+        ticketSetId: state.pendingTicketSet.id,
+        ticketSetCreatedAt: state.pendingTicketSet.createdAt,
+        tickets: approval.tickets,
+        userText: text,
+        approvedAt: new Date().toISOString(),
+        replyTo,
+        status: 'running',
+        recoveryAttempts: 0,
+      };
+      state.pendingBrokerExecution = brokerExecution;
+      saveState(state);
+      agentPrompt = text;
+      logEvent('ticket_approval_resolved', {
+        execution_id: brokerExecution.id,
+        ticket_set: brokerExecution.ticketSetId,
+        tickets: approval.tickets.map((ticket) => ticket.number),
+      });
+    }
+  }
+  const pendingModel = state.pendingModelSwitch;
+  const implicitModelAnswer = implicitModelChoiceAnswer(pendingModel, text);
+  const implicitAgentDecision = state.pendingDecision && /^\d+$/.test(text.trim()) ? text.trim() : null;
+  if (cmd === '/decide' || cmd.startsWith('/decide ') || implicitModelAnswer || implicitAgentDecision) {
+    const answer = (implicitModelAnswer || implicitAgentDecision || text.slice(7)).trim();
+    if (pendingModel) {
+      if (!answer) return sendText(replyTo, formatModelChoiceForPhone(pendingModel));
+      forcedChoice = resolveModelChoice(pendingModel, answer);
+      if (!forcedChoice) {
+        return sendText(replyTo, `Choose 1-${pendingModel.choices.length}, or type claude MODEL or codex MODEL.`);
+      }
+      agentPrompt = modelHandoffPrompt(pendingModel, forcedChoice);
+      if (pendingModel.brokerExecution) {
+        brokerExecution = pendingModel.brokerExecution;
+        brokerExecution.status = 'running';
+        state.pendingBrokerExecution = brokerExecution;
+        saveState(state);
+        agentPrompt = brokerExecution.userText || text;
+      }
+      runAttachments = Array.isArray(pendingModel.attachments) ? pendingModel.attachments : runAttachments;
+      answeredModelSwitch = true;
+      changeSnapshotDir ||= pendingModel.changeSnapshotDir || null;
+    } else {
+      const pending = state.pendingDecision;
+      if (!pending) return sendText(replyTo, 'No agent decision is waiting.');
+      if (!answer) return sendText(replyTo, formatDecisionForPhone(pending));
+      const number = Number(answer);
+      if (Number.isInteger(number) && (number < 1 || number > pending.options.length)) {
+        return sendText(replyTo, `Choose 1-${pending.options.length}, or describe your decision after /decide.`);
+      }
+      agentPrompt = decisionContinuation(pending, answer);
+      answeredDecision = true;
+      changeSnapshotDir ||= pending.changeSnapshotDir || null;
+      inheritedChangeReason = pending.changeReason || {};
+    }
+  }
+
+  if (brokerExecution) {
+    const savedSet = state.pendingTicketSet?.id === brokerExecution.ticketSetId
+      ? state.pendingTicketSet : { id: brokerExecution.ticketSetId, createdAt: brokerExecution.ticketSetCreatedAt };
+    runOptions = {
+      ...runOptions,
+      brokerKind: 'action',
+      resetBrokerSession: true,
+      trustedBrokerApproval: buildTrustedBrokerApprovalInstructions(savedSet, brokerExecution.tickets, brokerExecution),
+    };
   }
 
   const inboundLagS = sentAtMs ? Math.max(0, Math.round((Date.now() - sentAtMs) / 1000)) : null;
@@ -828,7 +1878,15 @@ async function handleInbound(replyTo, text, sentAtMs = null) {
   // pings → result or error
   const looksLong = /report|scan|sweep|analy|research|review|deep|audit|run/i.test(text);
   const startMs = Date.now();
-  activeRun = { prompt: text, startedMs: startMs, replyTo };
+  if (!changeSnapshotDir || !fs.existsSync(changeSnapshotDir)) {
+    try { changeSnapshotDir = captureWorkspaceSnapshot(DESK_DIR, CHANGE_SNAPSHOT_DIR); }
+    catch (e) { changeSnapshotDir = null; logEvent('change_snapshot_error', { error: e.message }); }
+  }
+  const transcript = createRunTranscript(RUN_LOG_DIR, text);
+  if (runAttachments.length) transcript.append('IMAGES', `${runAttachments.length} private inbound image${runAttachments.length === 1 ? '' : 's'}`);
+  const runView = createRemoteRunView(text, startMs);
+  activeRun = { prompt: text, startedMs: startMs, replyTo, transcript, view: runView, changeSnapshotDir,
+    brokerExecutionId: brokerExecution?.id || null };
   const timers = [];
   const rotated = rotateSessionIfNeeded();
   if (rotated) {
@@ -837,14 +1895,22 @@ async function handleInbound(replyTo, text, sentAtMs = null) {
   }
   // Receipt is ordered before agent startup. Previously this was fire-and-forget,
   // which let it race later messages and silently hid delivery failures.
-  await sendStatus(replyTo, 'received', rotated
-    ? `📥 Command received — processing… (fresh session: previous chat context ${rotated === 'idle' ? 'went stale' : 'grew too large'} and was retired)`
-    : '📥 Command received — processing…');
-  timers.push(setTimeout(function ping() {
-    const mins = Math.round((Date.now() - startMs) / 60_000);
-    sendStatus(replyTo, 'progress', `⏳ Still working — ${mins}m elapsed…`);
-    timers.push(setTimeout(ping, 300_000)); // then every 5 minutes
-  }, 120_000)); // first ping at 2 minutes
+  const liveMonitor = await createLiveRunMonitor(replyTo, runView);
+  activeRun.liveMonitor = liveMonitor;
+  if (!liveMonitor) {
+    await sendStatus(replyTo, 'received', rotated
+      ? `📥 Command received — processing… (fresh session: previous chat context ${rotated === 'idle' ? 'went stale' : 'grew too large'} and was retired)`
+      : '📥 Command received — processing…');
+  }
+  if (liveMonitor) {
+    timers.push(setInterval(() => liveMonitor.refresh(), 15_000));
+  } else {
+    timers.push(setTimeout(function ping() {
+      const mins = Math.round((Date.now() - startMs) / 60_000);
+      sendStatus(replyTo, 'progress', `⏳ Still working — ${mins}m elapsed…`);
+      timers.push(setTimeout(ping, 300_000)); // then every 5 minutes
+    }, 120_000)); // first ping at 2 minutes
+  }
   // Keep transient typing indicators alive for transports that support them.
   if (messenger.typing) {
     const typing = () => Promise.resolve(messenger.typing(replyTo)).catch(() => {});
@@ -859,18 +1925,23 @@ async function handleInbound(replyTo, text, sentAtMs = null) {
     if (!agentStartedTimer || !agentStartedDetail) return;
     clearTimeout(agentStartedTimer);
     agentStartedTimer = null;
-    const current = agentStartedDetail?.agent ? agentLabel(agentStartedDetail.agent, agentStartedDetail.model) : agentLabel(agent, model);
-    sendStatus(replyTo, 'agent_started', looksLong
-      ? `🤖 ${current} running — full reports can take a few minutes (up to ~20). The result lands here when done.`
-      : `🤖 ${current} running — this might take a few minutes…`);
+    const current = agentStartedDetail?.agent
+      ? agentLabel(agentStartedDetail.agent, agentStartedDetail.model) : 'Agent';
+    if (!liveMonitor) {
+      sendStatus(replyTo, 'agent_started', looksLong
+        ? `🤖 ${current} running — full reports can take a few minutes (up to ~20). The result lands here when done.`
+        : `🤖 ${current} running — this might take a few minutes…`);
+    }
     agentStartedDetail = null;
   };
-  const { ok, text: reply, costUsd, tokens, agent = 'unknown', model = null } = await runPreferredAgent(text, (kind, detail) => {
+  let result = await runPreferredAgent(agentPrompt, (kind, detail) => {
+    activeRun?.liveMonitor?.event(kind, detail);
     if (kind === 'started') {
       agentStartS = Math.round((Date.now() - startMs) / 1000);
       agentStartedDetail = detail || { agent, model };
       agentStartedTimer = setTimeout(flushAgentStarted, 1000);
       logEvent('agent_started', { after_s: agentStartS });
+      transcript.append('START', `${agentLabel(detail?.agent, detail?.model)}`);
     } else if (kind === 'switch') {
       if (agentStartedTimer) {
         clearTimeout(agentStartedTimer);
@@ -884,30 +1955,190 @@ async function handleInbound(replyTo, text, sentAtMs = null) {
     } else if (kind === 'trouble') {
       sendStatus(replyTo, 'trouble', `⚠️ Hit an issue mid-run — the agent is retrying / working around it:\n${detail}`);
       logEvent('run_trouble', { detail });
+    } else if (kind === 'circuit_breaker') {
+      sendStatus(replyTo, 'circuit_breaker', `🛑 Circuit breaker stopped the run to prevent a loop or excess token use.\n${detail?.reason || 'Safety limit reached.'}`);
+      logEvent('circuit_breaker', detail || {});
+      transcript.append('STOP', detail?.reason || 'circuit breaker');
+    } else if (kind === 'execution') {
+      const line = toolEventLine(detail);
+      transcript.append(line.kind, line.text);
     }
-  });
+  }, forcedChoice, runAttachments, runOptions);
+  if (agentStartedTimer) {
+    clearTimeout(agentStartedTimer);
+    agentStartedTimer = null;
+    agentStartedDetail = null;
+  }
+  if (activeRun?.interrupt && !result.interrupted) {
+    result = { ok: false, interrupted: true, agent: activeRun.agent || result.agent,
+      model: activeRun.model || result.model, fallbackEligible: false, text: activeRun.interrupt.reason };
+  }
+  if (result.interrupted) {
+    for (const t of timers) { clearTimeout(t); clearInterval(t); }
+    transcript.append('INTERRUPTED', result.text || 'phone remote control');
+    await activeRun?.liveMonitor?.finish('interrupted', result.text);
+    state.lastRunView = activeRun?.view;
+    if (brokerExecution && state.pendingBrokerExecution?.id === brokerExecution.id) {
+      state.pendingBrokerExecution = { ...state.pendingBrokerExecution,
+        status: activeRun?.interrupt?.action === 'stop' ? 'stopped' : 'needs_reconfirmation',
+        interruptedAt: new Date().toISOString() };
+    }
+    saveState(state);
+    if (activeRun?.interrupt?.action !== 'steer') {
+      await deliverChangeReview(replyTo, changeSnapshotDir, text, result.text || 'Run stopped.');
+    }
+    activeRun = null;
+    logEvent('run_interrupted', { agent: result.agent, reason: result.text });
+    return;
+  }
+  if (result.pausedForModel) {
+    for (const t of timers) { clearTimeout(t); clearInterval(t); }
+    state.pendingModelSwitch = result.pendingModelSwitch;
+    state.pendingModelSwitch.changeSnapshotDir = changeSnapshotDir;
+    if (brokerExecution) {
+      brokerExecution.status = 'waiting_model';
+      state.pendingBrokerExecution = brokerExecution;
+      state.pendingModelSwitch.brokerExecution = brokerExecution;
+    }
+    saveState(state);
+    scheduleAvailabilityRecovery(result.pendingModelSwitch, replyTo);
+    transcript.append('MODEL DECISION', `${result.pendingModelSwitch.failedAgent} ${result.pendingModelSwitch.failedModel}`);
+    await activeRun?.liveMonitor?.finish('paused', 'Waiting for a model choice');
+    state.lastRunView = activeRun?.view;
+    saveState(state);
+    await sendText(replyTo, formatModelChoiceForPhone(result.pendingModelSwitch));
+    await deliverExecutionTranscript(replyTo, transcript, false);
+    activeRun = null;
+    await applyDeferredRestart(replyTo, transcript);
+    logEvent('model_decision_requested', {
+      failed_agent: result.pendingModelSwitch.failedAgent,
+      failed_model: result.pendingModelSwitch.failedModel,
+      options: result.pendingModelSwitch.choices.length,
+    });
+    return;
+  }
+  const { ok, text: rawReply, costUsd, tokens, agent = 'unknown', model = null } = result;
+  const decisionParsed = parseDecisionRequest(rawReply);
+  const changeParsed = parseChangeReason(decisionParsed.text);
+  const combinedChangeReason = {
+    summary: changeParsed.changeReason?.summary || inheritedChangeReason.summary || '',
+    files: { ...(inheritedChangeReason.files || {}), ...(changeParsed.changeReason?.files || {}) },
+  };
+  const ticketParsed = extractReportTickets(changeParsed.text);
+  const parsedReply = { ...decisionParsed, text: ticketParsed.text };
+  const reply = parsedReply.text;
+  transcript.append(ok ? 'COMPLETE' : 'ERROR', `${agentLabel(agent, model)} — ${ok ? 'finished' : String(rawReply).slice(0, 800)}`);
   for (const t of timers) { clearTimeout(t); clearInterval(t); }
-  activeRun = null;
   const runS = Math.round((Date.now() - startMs) / 1000);
   if (ok) {
     state.lastAgent = agent;
+    if (parsedReply.decision) {
+      state.pendingDecision = {
+        ...parsedReply.decision,
+        requestedAt: new Date().toISOString(),
+        agent,
+        model,
+        changeSnapshotDir,
+        changeReason: combinedChangeReason,
+      };
+      transcript.append('DECISION', parsedReply.decision.question);
+    } else if (answeredDecision) {
+      delete state.pendingDecision;
+    }
+    if (result.automaticFallback) {
+      state.temporaryModelChoice = {
+        ...result.automaticFallback,
+        replyTo,
+      };
+      delete state.pendingModelSwitch;
+      logEvent('temporary_model_selected', {
+        agent: result.automaticFallback.agent,
+        model: result.automaticFallback.model,
+        default_agent: result.automaticFallback.defaultAgent,
+        reset_at: result.automaticFallback.resetAtMs,
+        automatic: true,
+      });
+      scheduleAvailabilityRecovery(result.automaticFallback, replyTo);
+    } else if (answeredModelSwitch) {
+      state.temporaryModelChoice = {
+        agent: forcedChoice.agent,
+        model: forcedChoice.model,
+        defaultAgent: selectedDefaultAgent(),
+        failedAgent: pendingModel?.failedAgent || null,
+        failedModel: pendingModel?.failedModel || null,
+        resetAtMs: pendingModel?.resetAtMs || null,
+        selectedAt: new Date().toISOString(),
+        replyTo,
+      };
+      delete state.pendingModelSwitch;
+      logEvent('temporary_model_selected', { agent: forcedChoice.agent, model: forcedChoice.model,
+        default_agent: selectedDefaultAgent(), reset_at: pendingModel?.resetAtMs || null });
+    }
     state.recentHistory = [...(Array.isArray(state.recentHistory) ? state.recentHistory : []),
-      { role: 'user', text: text.slice(0, 2000) }, { role: 'assistant', text: String(reply).slice(0, 3000) }].slice(-12);
+      { role: 'user', text: text.slice(0, 2000) },
+      { role: 'assistant', text: `${String(reply).slice(0, 2500)}${parsedReply.decision ? `\nDecision requested: ${parsedReply.decision.question}` : ''}` }].slice(-12);
+    if (ticketParsed.tickets.length && !brokerExecution) {
+      state.pendingTicketSet = {
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        sourcePrompt: text.slice(0, 500),
+        status: 'pending',
+        tickets: ticketParsed.tickets,
+      };
+      logEvent('report_tickets_saved', { ticket_set: state.pendingTicketSet.id,
+        tickets: ticketParsed.tickets.map((ticket) => ticket.number) });
+    }
+    if (brokerExecution && state.pendingBrokerExecution?.id === brokerExecution.id) {
+      const blocked = brokerExecutionFailed(reply);
+      const completed = !blocked && brokerExecutionSucceeded(reply);
+      state.pendingBrokerExecution = {
+        ...state.pendingBrokerExecution,
+        status: blocked ? 'blocked' : completed ? 'completed' : 'needs_verification',
+        finishedAt: new Date().toISOString(),
+      };
+      if (completed && state.pendingTicketSet?.id === brokerExecution.ticketSetId) {
+        state.pendingTicketSet.status = 'handled';
+        state.pendingTicketSet.handledAt = new Date().toISOString();
+      } else if (state.pendingTicketSet?.id === brokerExecution.ticketSetId) {
+        state.pendingTicketSet.status = 'pending';
+        delete state.pendingTicketSet.handledAt;
+      }
+      logEvent('broker_execution_finished', { execution_id: brokerExecution.id, blocked, completed });
+    }
     saveState(state);
   }
   logEvent('agent_run', {
-    agent, ok, duration_s: runS, reply_chars: String(reply).length,
+    agent, model, ok, duration_s: runS, reply_chars: String(reply).length,
     cost_usd: costUsd, tokens, session_kb: sessionTranscriptKB(),
   });
   if (!ok) {
-    await sendText(replyTo, `⚠️ Error — the run failed:\n${String(reply).trim().slice(0, 3000) || '(no error detail)'}`);
+    if (brokerExecution && state.pendingBrokerExecution?.id === brokerExecution.id) {
+      state.pendingBrokerExecution = { ...state.pendingBrokerExecution, status: 'failed',
+        finishedAt: new Date().toISOString() };
+      saveState(state);
+    }
+    await activeRun?.liveMonitor?.finish('failed', String(rawReply).trim().slice(0, 110));
+    state.lastRunView = activeRun?.view;
+    saveState(state);
+    await sendText(replyTo, `⚠️ Error — the run failed:\n${String(rawReply).trim().slice(0, 3000) || '(no error detail)'}`);
+    await deliverChangeReview(replyTo, changeSnapshotDir, text, String(rawReply).trim(), combinedChangeReason);
+    await deliverExecutionTranscript(replyTo, transcript, false);
+    activeRun = null;
+    await applyDeferredRestart(replyTo, transcript);
     log('replied with error');
     logEvent('reply_error', { detail: String(reply).trim().slice(0, 500) });
     logTiming({ prompt: text.slice(0, 80), phone_to_bridge_s: inboundLagS, agent_start_s: agentStartS, run_s: runS, reply_sent_s: Math.round((Date.now() - startMs) / 1000), ok: false, files: 0 });
     return;
   }
+  let changeReview = null;
   const { text: replyText, files } = extractFileDirectives(reply);
-  if (replyText) await sendText(replyTo, replyText);
+  if (replyText) {
+    const finalReply = sanitizePhoneText(replyText, { maxChars: messenger.maxTextChars, maxLines: 5 });
+    if (finalReply.redactions || finalReply.shortened) {
+      logEvent('final_reply_sanitized', { redactions: finalReply.redactions, shortened: finalReply.shortened });
+    }
+    if (finalReply.text) await sendText(replyTo, finalReply.text);
+  }
   for (const f of files) {
     if (messenger.sendFile) {
       await messenger.sendFile(replyTo, f, path.basename(f));
@@ -917,11 +2148,26 @@ async function handleInbound(replyTo, text, sentAtMs = null) {
       await sendText(replyTo, `(report ready on the laptop: ${f} — ${PROVIDER} file delivery is not enabled yet)`);
     }
   }
+  if (!parsedReply.decision) {
+    changeReview = await deliverChangeReview(replyTo, changeSnapshotDir, text, reply, combinedChangeReason);
+  }
+  if (parsedReply.decision) {
+    await sendText(replyTo, formatDecisionForPhone(parsedReply.decision));
+    logEvent('decision_requested', { question: parsedReply.decision.question.slice(0, 300), options: parsedReply.decision.options.length });
+  }
+  await activeRun?.liveMonitor?.finish(parsedReply.decision ? 'paused' : 'done',
+    parsedReply.decision ? 'Waiting for your decision' : 'Final reply delivered below');
+  state.lastRunView = activeRun?.view;
+  saveState(state);
+  await deliverExecutionTranscript(replyTo, transcript, true);
+  activeRun = null;
+  if ((answeredModelSwitch || result.automaticFallback) && !state.availabilityRecovery) armTemporaryResetDiscovery();
+  await applyDeferredRestart(replyTo, transcript);
   log('replied');
-  logTiming({ prompt: text.slice(0, 80), phone_to_bridge_s: inboundLagS, agent_start_s: agentStartS, run_s: runS, reply_sent_s: Math.round((Date.now() - startMs) / 1000), ok: true, files: files.length });
+  logTiming({ prompt: text.slice(0, 80), phone_to_bridge_s: inboundLagS, agent_start_s: agentStartS, run_s: runS, reply_sent_s: Math.round((Date.now() - startMs) / 1000), ok: true, files: files.length, change_review_files: changeReview?.count || 0 });
 }
 
-function enqueue(id, from, text, replyTo = from, sentAtMs = null) {
+function enqueue(id, from, text, replyTo = from, sentAtMs = null, attachments = [], runOptions = {}) {
   if (seenIds.has(id)) return;
   seenIds.add(id);
   if (seenIds.size > 500) seenIds.delete(seenIds.values().next().value);
@@ -932,16 +2178,64 @@ function enqueue(id, from, text, replyTo = from, sentAtMs = null) {
     return;
   }
   if (/^(join|stop)\b/i.test(text)) return; // twilio sandbox control words, not prompts
+  const immediateAgent = attachments.length ? null : text.match(/^\/agent\s+(codex|claude)\s*$/i);
+  if (activeRun && immediateAgent) {
+    const want = immediateAgent[1].toLowerCase();
+    const alternatives = setDefaultAgentPreference(want);
+    sendText(replyTo, `Default agent set: ${agentLabel(want, want === 'codex' ? CODEX_MODEL : CLAUDE_MODEL)}\nModel choice on failure includes: ${alternatives.join(' → ') || 'no other agent'}\nApplies immediately.`).catch(() => {});
+    return;
+  }
+  if (activeRun && !attachments.length && /^\/status$/i.test(text.trim())) {
+    sendText(replyTo, formatRemoteRunView(activeRun.view)).catch(() => {});
+    return;
+  }
+  const remoteControl = attachments.length ? null : parseRemoteControl(text);
+  if (activeRun && remoteControl) {
+    if (remoteControl.action === 'status') {
+      sendText(replyTo, formatRemoteRunView(activeRun.view)).catch(() => {});
+      return;
+    }
+    if (remoteControl.action === 'steer' && !remoteControl.prompt) {
+      sendText(replyTo, 'Add the new direction after /steer. Example: /steer stop researching and run the tests.').catch(() => {});
+      return;
+    }
+    const reason = remoteControl.action === 'steer'
+      ? 'Redirected from the phone; resuming the same session with the new instruction.'
+      : 'Stopped from the phone; session preserved.';
+    activeRun.interrupt = { action: remoteControl.action, reason };
+    const interruptedChild = activeRun.child;
+    interruptedChild?.kill('SIGTERM');
+    if (interruptedChild) setTimeout(() => interruptedChild.kill('SIGKILL'), 10_000);
+    logEvent('remote_control', { action: remoteControl.action, agent: activeRun.agent || null });
+    if (remoteControl.action === 'stop') {
+      sendText(replyTo, 'Stopping the active turn. The agent session and completed file changes are preserved.').catch(() => {});
+      return;
+    }
+    const continuationSnapshot = activeRun.changeSnapshotDir || null;
+    queueDepth++;
+    sendText(replyTo, 'Redirecting the active turn. The same agent session will resume with your new instruction.').catch(() => {});
+    queue = queue.then(() => handleInbound(replyTo, remoteControl.prompt, sentAtMs, [], continuationSnapshot)).catch((e) => {
+      log('steer handler error:', e);
+      logEvent('handler_error', { error: String(e?.message || e), source: 'steer' });
+      sendText(replyTo, `Bridge error: ${e?.message || e}`).catch(() => {});
+    });
+    return;
+  }
   // runs are serialized — if one is active, say so NOW instead of leaving the
   // message in a silent queue (seen 2026-07-11: a 12:49 message waited 47 min
   // behind a long run with zero acknowledgment)
   if (activeRun) {
+    if (queueDepth >= MAX_QUEUE_DEPTH) {
+      logEvent('queue_rejected', { prompt: text.slice(0, 80), max_queue_depth: MAX_QUEUE_DEPTH });
+      sendText(replyTo, `🛑 Queue full (${MAX_QUEUE_DEPTH}). This message was not scheduled, preventing an unbounded backlog and token spend. Retry after the current run finishes.`).catch(() => {});
+      return;
+    }
     const mins = Math.round((Date.now() - activeRun.startedMs) / 60_000);
     queueDepth++;
     logEvent('queued', { prompt: text.slice(0, 80), behind_mins: mins, position: queueDepth });
     sendText(replyTo, `📥 Received — queued behind the current run ("${activeRun.prompt.slice(0, 60)}", running ${mins}m${queueDepth > 1 ? `; position ${queueDepth}` : ''}). It starts as soon as that finishes.`).catch(() => {});
   }
-  queue = queue.then(() => handleInbound(replyTo, text, sentAtMs)).catch((e) => {
+  queue = queue.then(() => handleInbound(replyTo, text, sentAtMs, attachments, null, runOptions)).catch((e) => {
     log('handler error:', e);
     logEvent('handler_error', { error: String(e?.message || e) });
     sendText(replyTo, `⚠️ Bridge error: ${e?.message || e}`).catch(() => {});
@@ -957,7 +2251,7 @@ async function pollOnce(sinceMs) {
     `?PageSize=20&To=${encodeURIComponent(TWILIO_WHATSAPP_FROM)}`;
   const res = await fetch(url, {
     headers: {
-      Authorization: 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64'),
+      Authorization: twilioAuthorization(),
     },
   });
   if (!res.ok) {
@@ -967,14 +2261,26 @@ async function pollOnce(sinceMs) {
   const { messages = [] } = await res.json();
   // newest first — reverse so a burst is handled in send order
   for (const m of messages.reverse()) {
-    if (m.direction !== 'inbound' || !m.body) continue;
+    if (m.direction !== 'inbound') continue;
     const ts = Date.parse(m.date_created);
     if (ts < sinceMs) continue;
     // persisted watermark: a restart (or a skewed clock) must never replay an
     // already-handled message — a stale "yes" replayed into a resumed session
     // could confirm a pending order ticket.
     if (state.lastPollTs && ts <= state.lastPollTs) continue;
-    enqueue(m.sid, String(m.from || '').replace(/\D/g, ''), m.body.trim());
+    const from = String(m.from || '').replace(/\D/g, '');
+    if (from !== ALLOWED_SENDER) continue;
+    const hasImage = Number(m.num_media || 0) > 0;
+    const text = String(m.body || '').trim();
+    if (!text && !hasImage) continue;
+    let attachments = [];
+    try { attachments = hasImage ? await twilioPollingImages(m) : []; }
+    catch (e) { logEvent('inbound_image_error', { provider: 'twilio', error: e.message }); }
+    if (hasImage && !attachments.length) {
+      await sendText(from, 'Image rejected or unavailable. Send JPEG, PNG, WebP, or GIF up to 20 MB.');
+    } else {
+      enqueue(m.sid, from, text || 'Inspect the attached image and explain what matters.', from, ts, attachments);
+    }
     if (!state.lastPollTs || ts > state.lastPollTs) { state.lastPollTs = ts; saveState(state); }
   }
 }
@@ -1005,8 +2311,19 @@ function handleTwilioPost(raw, req, res) {
 
   const from = String(params.From || '').replace(/\D/g, ''); // "whatsapp:+1415..." -> digits
   const text = String(params.Body || '').trim();
-  if (!params.MessageSid || !text) return;
-  enqueue(params.MessageSid, from, text);
+  const hasImage = Number(params.NumMedia || 0) > 0;
+  if (!params.MessageSid || (!text && !hasImage) || from !== ALLOWED_SENDER) return;
+  void (async () => {
+    const attachments = hasImage ? await twilioWebhookImages(params) : [];
+    if (hasImage && !attachments.length) {
+      await sendText(from, 'Image rejected or unavailable. Send JPEG, PNG, WebP, or GIF up to 20 MB.');
+      return;
+    }
+    enqueue(params.MessageSid, from, text || 'Inspect the attached image and explain what matters.', from, Date.now(), attachments);
+  })().catch(async (e) => {
+    logEvent('inbound_image_error', { provider: 'twilio', error: e.message });
+    await sendText(from, 'Image download failed. Please resend it.').catch(() => {});
+  });
 }
 
 function handleMetaPost(raw, req, res) {
@@ -1022,16 +2339,75 @@ function handleMetaPost(raw, req, res) {
   for (const entry of payload.entry || []) {
     for (const change of entry.changes || []) {
       for (const msg of change.value?.messages || []) {
-        if (msg.type !== 'text' || !msg.text?.body) continue;
+        if (!['text', 'image'].includes(msg.type) || msg.from !== ALLOWED_SENDER) continue;
         markReadAndTyping(msg.id).catch(() => {});
-        enqueue(msg.id, msg.from, msg.text.body.trim());
+        void (async () => {
+          const hasImage = msg.type === 'image';
+          const text = String(msg.text?.body || msg.image?.caption || '').trim();
+          const attachments = hasImage ? await metaInboundImages(msg) : [];
+          if (hasImage && !attachments.length) {
+            await sendText(msg.from, 'Image rejected or unavailable. Send JPEG, PNG, WebP, or GIF up to 20 MB.');
+            return;
+          }
+          enqueue(msg.id, msg.from, text || 'Inspect the attached image and explain what matters.', msg.from,
+            Number(msg.timestamp || 0) * 1000 || Date.now(), attachments);
+        })().catch(async (e) => {
+          logEvent('inbound_image_error', { provider: 'meta', error: e.message });
+          await sendText(msg.from, 'Image download failed. Please resend it.').catch(() => {});
+        });
       }
     }
   }
 }
 
+function handleScheduledPost(req, res) {
+  const remote = String(req.socket.remoteAddress || '');
+  const supplied = String(req.headers['x-scheduler-token'] || '');
+  const local = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1';
+  const got = Buffer.from(supplied);
+  const want = Buffer.from(SCHEDULER_TOKEN);
+  if (!local || got.length !== want.length || !crypto.timingSafeEqual(got, want)) {
+    res.writeHead(403); return res.end('forbidden');
+  }
+  const chunks = [];
+  let bytes = 0;
+  req.on('data', (chunk) => {
+    bytes += chunk.length;
+    if (bytes > 8192) req.destroy(new Error('scheduled request too large'));
+    else chunks.push(chunk);
+  });
+  req.on('end', () => {
+    let payload;
+    try { payload = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+    catch { res.writeHead(400); return res.end('invalid JSON'); }
+    const kind = String(payload.kind || '');
+    if (!SCHEDULE_KINDS.includes(kind)) { res.writeHead(400); return res.end('invalid schedule kind'); }
+    const dow = new Date().getDay();
+    if (kind !== 'test' && payload.force !== true && (dow === 0 || dow === 6)) {
+      res.writeHead(202); return res.end(`${kind} skipped on weekend`);
+    }
+    const mode = currentMode();
+    const prompt = buildScheduledPrompt(kind, mode);
+    const id = `scheduled-${kind}-${new Date().toISOString()}`;
+    res.writeHead(202, { 'Content-Type': 'text/plain' });
+    res.end(`${kind} accepted by bridge model router`);
+    logEvent('scheduled_submitted', { kind, mode, preferred_agent: SCHEDULE_PREFERRED_AGENT });
+    sendText(SCHEDULE_REPLY_TO, `${scheduledLabel(kind)} scheduled run accepted — automatic model fallback is enabled.`).catch(() => {});
+    enqueue(id, ALLOWED_SENDER, prompt, SCHEDULE_REPLY_TO, Date.now(), [], {
+      autoModelFallback: true,
+      preferredAgent: SCHEDULE_PREFERRED_AGENT,
+      scheduledKind: kind,
+      resetSessions: kind !== 'test',
+    });
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
+  if (url.pathname === '/internal/scheduled') {
+    if (req.method !== 'POST') { res.writeHead(405); return res.end(); }
+    return handleScheduledPost(req, res);
+  }
   if (url.pathname !== '/webhook') { res.writeHead(404); return res.end(); }
 
   // Meta webhook verification handshake (twilio never sends GET — 403 is fine)
@@ -1057,25 +2433,67 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// a service restart (launchctl unload) SIGTERMs the bridge and kills any
-// in-flight claude run with it — without this, the phone sees "Agent
-// running…" and then silence forever (bit the META report on 2026-07-11)
+// Unexpected termination still reports the interrupted run. Normal code
+// activation is deferred until after reply/log delivery and uses kickstart.
 process.on('SIGTERM', () => {
   const dying = activeRun;
   logEvent('shutdown', dying ? { interrupted: dying.prompt.slice(0, 80) } : {});
   if (!dying) process.exit(0);
+  if (dying.brokerExecutionId && state.pendingBrokerExecution?.id === dying.brokerExecutionId) {
+    state.pendingBrokerExecution = { ...state.pendingBrokerExecution, status: 'running',
+      interruptedAt: new Date().toISOString() };
+    saveState(state);
+  }
   const mins = Math.round((Date.now() - dying.startedMs) / 60_000);
+  dying.transcript?.append('INTERRUPTED', 'bridge process received SIGTERM');
+  const notices = [
+    sendText(dying.replyTo, dying.brokerExecutionId
+      ? `⚠️ The bridge restarted during an approved order run (${mins}m in). It will resume automatically and reconcile live broker state before any action.`
+      : `⚠️ The bridge stopped unexpectedly — "${dying.prompt.slice(0, 60)}" (${mins}m in) was interrupted. Its partial execution log is attached; resend after /status confirms recovery.`),
+  ];
+  if (dying.transcript && messenger.sendFile) {
+    notices.push(messenger.sendFile(dying.replyTo, dying.transcript.path, 'Partial agent execution log'));
+  }
   Promise.race([
-    sendText(dying.replyTo, `⚠️ The bridge was restarted mid-run — "${dying.prompt.slice(0, 60)}" (${mins}m in) was interrupted and won't finish. Please resend it.`),
+    Promise.allSettled(notices),
     new Promise((r) => setTimeout(r, 4000)),
   ]).finally(() => process.exit(0));
 });
 
 logEvent('startup', { provider: PROVIDER, mode: messenger.mode });
-if (messenger.start) {
-  messenger.start();
-} else {
-  server.listen(PORT, '127.0.0.1', () => {
-    log(`bridge listening on http://127.0.0.1:${PORT}/webhook — provider: ${PROVIDER}`);
-  });
+const expiredImages = cleanupInboundImages(INBOUND_MEDIA_DIR);
+if (expiredImages) logEvent('inbound_image_cleanup', { removed: expiredImages });
+if (migratePendingTicketSet()) logEvent('report_tickets_migrated', { ticket_set: state.pendingTicketSet.id,
+  tickets: state.pendingTicketSet.tickets.map((ticket) => ticket.number) });
+if (repairFalseCompletedBrokerExecution()) logEvent('broker_execution_false_completion_repaired', {
+  execution_id: state.pendingBrokerExecution.id,
+});
+migrateLastHandoffChoice();
+armAvailabilityRecovery();
+armTemporaryResetDiscovery();
+server.listen(PORT, '127.0.0.1', () => {
+  log(`bridge control listening on http://127.0.0.1:${PORT} — provider: ${PROVIDER}`);
+});
+if (messenger.start) messenger.start();
+
+function recoverInterruptedBrokerExecution() {
+  const pending = state.pendingBrokerExecution;
+  if (!pending || pending.status !== 'running' || !pending.replyTo || !Array.isArray(pending.tickets)) return;
+  const ageMs = Date.now() - Date.parse(pending.approvedAt || 0);
+  if (!Number.isFinite(ageMs) || ageMs > BROKER_RECOVERY_WINDOW_MS || Number(pending.recoveryAttempts || 0) >= 1) {
+    pending.status = 'needs_reconfirmation';
+    saveState(state);
+    sendText(pending.replyTo, `The bridge recovered an interrupted approved order run, but the approval is now stale.\n${pending.tickets.map((ticket) => `${ticket.number}. ${ticket.description}`).join('\n')}\nReply “resume execution” to reconfirm, or name the ticket(s).`).catch(() => {});
+    logEvent('broker_execution_reconfirmation_required', { execution_id: pending.id, age_ms: ageMs });
+    return;
+  }
+  pending.recoveryAttempts = Number(pending.recoveryAttempts || 0) + 1;
+  pending.recoveredAt = new Date().toISOString();
+  saveState(state);
+  sendText(pending.replyTo, '♻️ Recovering the interrupted approved order run. Live broker state will be reconciled before any action, so completed orders are not duplicated.').catch(() => {});
+  enqueue(`broker-recovery-${pending.id}-${pending.recoveryAttempts}`, ALLOWED_SENDER,
+    pending.userText || 'resume execution', pending.replyTo, null, [], { brokerExecution: pending });
+  logEvent('broker_execution_recovery_started', { execution_id: pending.id, attempt: pending.recoveryAttempts });
 }
+
+setTimeout(recoverInterruptedBrokerExecution, 2000);

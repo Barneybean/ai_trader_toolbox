@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.desk-sunday-premarket</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/node</string>
+        <string>/Users/YOUR_NAME/Desktop/AI Trading/ai-trader-toolbox/chat-bot-bridge/scheduled-run.js</string>
+        <string>premarket</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_NAME/Desktop/AI Trading/ai-trader-toolbox/chat-bot-bridge</string>
+    <key>StartCalendarInterval</key>
+    <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_NAME/Desktop/AI Trading/ai-trader-toolbox/chat-bot-bridge/logs/scheduled.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_NAME/Desktop/AI Trading/ai-trader-toolbox/chat-bot-bridge/logs/scheduled.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/YOUR_NAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/YOUR_NAME</string>
+        <!-- intentional weekend job: bypass scheduled-run.js's weekday guard -->
+        <key>FORCE_RUN</key>
+        <string>1</string>
+    </dict>
+</dict>
+</plist>
