@@ -148,7 +148,8 @@ Examples:
 The public toolkit should not make users discover a magic word for adequate analysis. “Daily
 report,” “daily desk run,” “full daily report,” and “complete daily report” must invoke the same
 maximum decision-grade pipeline with sufficient current data, supporting evidence, historical
-recall, relevant engines and roles, adversarial review, risk/sufficiency gates, sources, charts,
+recall, book-state reconciliation (open orders + cash-vs-buying-power before the orders section),
+relevant engines and roles, adversarial review, risk/sufficiency gates, sources, charts,
 and the full human-reviewable HTML report. Reduced monitoring is allowed only through explicit
 phrases such as “quick update,” “changes only,” or “status only,” and any actionable finding must
 escalate automatically to the complete pipeline.

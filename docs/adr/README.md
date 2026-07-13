@@ -43,3 +43,4 @@ Routine bug fixes, copy edits, and new reference content don't need one.
 - [ADR-0006](0006-grouped-scripts-with-compatibility-launchers.md) — Grouped scripts with compatibility launchers — Accepted
 - [ADR-0007](0007-significant-change-smoke-gate.md) — Significant-change smoke gate with human review — Accepted
 - [ADR-0008](0008-read-only-source-sync-audit.md) — Read-only source sync audit before public ports — Accepted
+- [ADR-0009](0009-book-state-reconciliation-gate-and-forward-act-when-triggers.md) — Book-state reconciliation gate and forward Act-when triggers — Accepted

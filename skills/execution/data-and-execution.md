@@ -41,6 +41,7 @@ Per candidate ticker:
 - `get_equity_tradability` — confirm tradable before recommending.
 - `get_equity_positions` (the configured tradable account) — current holdings / existing exposure.
 - `get_portfolio` (the configured tradable account) — authoritative buying power for sizing.
+- `get_equity_orders` / `get_option_orders` (the configured tradable account) — **open resting orders. Pull every run (SKILL Step 3b, hard gate).** Decompose `net buying power = settled cash − cash reserved by open buy orders`; report cash / reserved / net, list each resting order (side/symbol/qty/limit/session/TIF), and surface any order that fights the run's plan as a cancel/replace ticket. Buying power already nets out reserved orders — never quote it alone as free "dry powder".
 
 Once per run, for the **macro/regime read** (`skills/analysis/macro-regime.md`):
 

@@ -62,8 +62,8 @@ edge; fully narrated = consensus beta (variant-perception rule applies unchanged
 
 For each inflection, one row (this table is the report deliverable):
 
-| Inflection | Evidence (tier · date) | Channel | Street's current read | Desk view | Priced? | Clock |
-|---|---|---|---|---|---|---|
+| Inflection | Evidence (tier · date) | Channel | Street's current read | Desk view | Priced? | Clock | Act when |
+|---|---|---|---|---|---|---|---|
 
 - **Materiality gate:** estimate the share of company value the inflection can plausibly touch
   (rough %). Below ~10% of value → watch-list line, not thesis material.
@@ -71,8 +71,30 @@ For each inflection, one row (this table is the report deliverable):
   outweighs a keynote demo; a capex line outweighs a vision statement.
 - **Clock:** the dated event that forces the Street to update (segment first disclosed,
   guidance raised, product GA, ruling date) — feeds the catalyst map and the two-horizon clock.
+- **Act when (the decision link — mandatory):** the **observable proof + price level + date**
+  that would flip this name from *watch* to a *sized action* (or a trim, if the inflection is a
+  bear input). Not "watch the AI pivot" but "**a first disclosed AI-compute/infra segment run-rate
+  ≥ $X at next print → start a Core tranche on a hold above $L**"; or "capex guide raised without a
+  revenue line → trim, the bet is now consuming FCF with no proof". Each Act-when writes a level to
+  the action-levels registry (so the alert sweep catches it) and a dated row to the catalyst map,
+  so the forward read drives a decision instead of narrating one.
 - **Net verdict:** the single sentence a report reader needs — "the market still prices X as
-  ___; the business is becoming ___; the gap closes when ___."
+  ___; the business is becoming ___; the gap closes when ___ — and we act when ___."
+
+**Decision-linkage rule:** an inflection read that produces no position, no dated Act-when
+trigger, and no explicit "priced in — no edge" verdict is **unfinished**. Long-horizon thinking
+earns its place by changing what the desk does on a clock, not by adding color. A name can be a
+*hold-and-let-compound* today and still carry an Act-when that would *add* — state it.
+
+**Archetype.** A social/ad platform that begins **selling AI compute / infrastructure / a
+model+cloud stack** is the textbook case: capex, org moves, and roadmap point to a different
+business than the ad-multiple the market still applies (multiple channel). Estimates channel: does
+an AI-infra/cloud segment show a disclosed run-rate and margin, or is it still buried in "other"?
+Multiple channel: do analysts quote it against hyperscaler-cloud peers yet? **Act when:** a first
+broken-out AI-compute/cloud segment (or a named external-customer compute deal with dollars) at the
+next print — that segment disclosure (category 4, highest-signal) is what forces the re-file from
+"ad multiple" to "compute multiple"; size the pre-disclosure position to the
+*capex-is-a-liability* bear case until the revenue line appears.
 
 ## How it wires into the desk
 
