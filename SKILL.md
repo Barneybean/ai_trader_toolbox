@@ -62,8 +62,9 @@ Analysis is expensive — spend it where the money is. Every run narrows:
 - **Apply the user's playbook.** Fold in house views (`skills/playbook/house-views.md`), tracked theses (`skills/playbook/watchlist-theses.md`), option structures (`skills/playbook/options.md`), and the mentor method (`skills/playbook/mentor-method.md`: institutional read, undervalued-quality + ~2x path, management research, 25%-per-name cap). Name which view a recommendation leans on.
 - **Execution authority is explicit and mode-gated.** Read `skills/decision/trading-modes.md` at
   the start of every run. `semi` is the public default (numbered tickets the user approves);
-  `manual` is the per-order-confirm kill switch; experimental `full` is disabled until the user explicitly opts in
-  and remains bounded by previews, account scope, sufficiency/risk gates, logging, and `/mode manual`.
+  `manual` is the per-order-confirm kill switch. Experimental `full` is a validate-only shadow
+  mode in this release: it runs the deterministic gateway and records rejects but cannot place an
+  order. Live autonomy remains disabled until the integration plan's safety gates are complete.
 - **Probabilistic, not prophetic.** Every call carries a conviction level and explicit invalidation. No hype.
 - **Optimize after-tax, after-cost.** Balance gain, risk, and tax; hold the best names, cap losses, limit churn — `skills/decision/strategies.md`, `skills/decision/tax-aware.md`.
 - **Not a financial or tax advisor.** Give the user what they need to decide; always state key risks.
