@@ -99,6 +99,8 @@ runs `scripts/ops/change_traceability.py`; its regression contract lives in
 
 Repository administrators must also protect the default branch with **Require a pull request before
 merging**, require the traceability/privacy/consistency checks, prevent force pushes, and limit
-direct pushes. Routine administrators and automation must not have bypass permission; keep any
-break-glass path narrowly scoped, audited, and limited to reversible emergency containment.
-File-based CI cannot prevent a privileged host-level bypass.
+direct pushes. The repository owner/admin may override the approval requirement only when all
+required checks have passed, the owner explicitly directs the merge, and the reason is recorded on
+the MR/PR. The override still merges through the MR/PR; it never authorizes a direct push, a failing
+check, or an automated bypass. Other automation and routine actors receive no bypass permission.
+File-based CI cannot prevent a privileged host-level action, so its audit trail is mandatory.
