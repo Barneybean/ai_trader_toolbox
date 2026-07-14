@@ -48,3 +48,4 @@ Routine bug fixes, copy edits, and new reference content don't need one.
 - [ADR-0011](0011-public-default-trading-mode-is-semi.md) — Public default trading mode is `semi` — Accepted
 - [ADR-0012](0012-manual-phone-agent-picker-is-independent-of-availability-fal.md) — Manual phone agent picker is independent of availability fallback — Accepted
 - [ADR-0013](0013-verified-issue-traceability-and-explicit-owner-admin-override.md) — Verified issue traceability and explicit owner-admin override — Accepted
+- [ADR-0016](0016-phone-bridge-recovery-and-delivery-are-deterministic.md) — Phone bridge recovery and delivery are deterministic — Accepted
