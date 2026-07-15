@@ -424,7 +424,10 @@ function rotateSessionIfNeeded() {
   return reason;
 }
 
-const log = (...a) => console.log(new Date().toISOString(), ...a);
+// Console output is deliberately event-only. Provider responses, sender IDs,
+// prompt text, channel IDs, and environment-derived configuration stay out of
+// clear-text service logs; structured local telemetry carries safe metadata.
+const log = (event) => console.log(new Date().toISOString(), String(event || 'bridge event'));
 
 // structured activity events → logs/activity.jsonl (debugging + reliability
 // audit trail; the text log above stays the human-readable stream)
@@ -841,6 +844,20 @@ function agentRunners() {
   return { codex: runCodex, claude: runClaude };
 }
 
+function runRegisteredAgent(agent, prompt, onEvent, model, attachments, runtime = {}) {
+  // Keep dispatch explicit. Agent names can originate in saved/user-selected
+  // state, so they must never become an unvalidated dynamic method call.
+  if (agent === 'codex') return runCodex(prompt, onEvent, model, attachments, runtime);
+  if (agent === 'claude') return runClaude(prompt, onEvent, model, attachments, runtime);
+  return Promise.resolve({
+    ok: false,
+    agent: String(agent || 'unknown'),
+    model,
+    fallbackEligible: false,
+    text: 'The selected agent is not registered.',
+  });
+}
+
 function currentCodexModels() {
   if (Date.now() - codexCatalogCache.at < 5 * 60_000 && codexCatalogCache.models.length) {
     return codexCatalogCache.models;
@@ -959,7 +976,7 @@ async function runAutomaticModelPlan(prompt, onEvent, attachments, preferredAgen
         brokerPreflight.observe(kind, detail);
         onEvent(kind, detail);
       };
-      let result = await runners[choice.agent](routedPrompt, trackedEvent, choice.model, attachments, {
+      let result = await runRegisteredAgent(choice.agent, routedPrompt, trackedEvent, choice.model, attachments, {
         trustedBrokerApproval: options.trustedBrokerApproval,
         reportRecoveryInstructions: options.reportRecoveryInstructions,
         blockBrokerActions: options.blockBrokerActions,
@@ -983,7 +1000,7 @@ async function runAutomaticModelPlan(prompt, onEvent, attachments, preferredAgen
         logEvent('scheduled_broker_preflight_missing', {
           kind: options.scheduledKind, agent: choice.agent, model: choice.model,
         });
-        const correction = await runners[choice.agent](
+        const correction = await runRegisteredAgent(choice.agent,
           scheduledBrokerCorrectionPrompt(), trackedEvent, choice.model, attachments,
         );
         if (correction.ok && brokerPreflight.attempted) result = correction;
@@ -1079,8 +1096,7 @@ async function runPreferredAgent(prompt, onEvent = () => {}, forcedChoice = null
   let attempts = 0;
   const brokerSessionsReset = new Set();
   for (const name of order) {
-    const runner = runners[name];
-    if (!runner) continue;
+    if (!runners[name]) continue;
     if (attempts >= MAX_AGENT_ATTEMPTS) {
       const reason = `agent-attempt limit reached (${attempts}/${MAX_AGENT_ATTEMPTS})`;
       onEvent('circuit_breaker', { agent: name, reason });
@@ -1118,7 +1134,7 @@ async function runPreferredAgent(prompt, onEvent = () => {}, forcedChoice = null
         text: formatModelChoiceForPhone(pendingModelSwitch),
       };
     }
-    last = await runner(basePrompt, onEvent, chosenModel, attachments, {
+    last = await runRegisteredAgent(name, basePrompt, onEvent, chosenModel, attachments, {
       trustedBrokerApproval: options.trustedBrokerApproval,
       reportRecoveryInstructions: options.reportRecoveryInstructions,
       blockBrokerActions: options.blockBrokerActions,
@@ -1194,7 +1210,7 @@ async function twilioSend(toDigits, body) {
       body: new URLSearchParams(params),
     },
   );
-  if (!res.ok) log(`twilio API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) log('twilio API request failed');
   return res.ok;
 }
 
@@ -1293,7 +1309,7 @@ function telegramApiOnce(method, payload, timeoutMs) {
         try { j = JSON.parse(raw); } catch { return reject(new Error(`${method} returned invalid JSON (${res.statusCode})`)); }
         const elapsedMs = Date.now() - started;
         logEvent('telegram_api', { method, elapsed_ms: elapsedMs, ok: Boolean(j.ok), status: res.statusCode });
-        if (!j.ok) log(`telegram ${method} ${res.statusCode}: ${JSON.stringify(j).slice(0, 200)}`);
+        if (!j.ok) log('telegram API request failed');
         resolve(j);
       });
     });
@@ -1363,7 +1379,7 @@ async function telegramSendDocument(chatId, filePath, caption) {
     const j = await res.json().catch(() => ({}));
     logEvent('telegram_api', { method: 'sendDocument', elapsed_ms: Date.now() - started,
       ok: Boolean(j.ok), status: res.status });
-    if (!j.ok) log(`telegram sendDocument ${res.status}: ${JSON.stringify(j).slice(0, 200)}`);
+    if (!j.ok) log('telegram document send failed');
     return j.ok;
   } finally {
     clearTimeout(timer);
@@ -1407,7 +1423,7 @@ function extractFileDirectives(reply) {
       catch { ok = false; }
     }
     if (ok) files.push(real);
-    else { log(`blocked FILE directive: ${m[1]}`); lines.push(`(file not sendable: ${path.basename(m[1])})`); }
+    else { log('blocked unsafe FILE directive'); lines.push(`(file not sendable: ${path.basename(m[1])})`); }
   }
   return { text: lines.join('\n').trim(), files };
 }
@@ -1446,7 +1462,7 @@ async function telegramPollLoop() {
       }
     } catch (e) {
       failures++;
-      log('telegram poll error:', e.message);
+      log('telegram poll failed');
       await new Promise((r) => setTimeout(r, Math.min(1000 * failures, 10_000)));
     }
   }
@@ -1467,13 +1483,19 @@ async function metaGraphPost(body) {
     headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) log(`graph API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) log('Meta Graph API request failed');
   return res.ok;
 }
 
 async function metaInboundImages(message) {
   if (message.type !== 'image' || !message.image?.id) return [];
-  const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${message.image.id}`, {
+  const mediaId = String(message.image.id);
+  if (!/^\d{1,64}$/.test(mediaId)) {
+    logEvent('inbound_image_rejected', { provider: 'meta', error: 'invalid media identifier' });
+    return [];
+  }
+  const mediaPath = encodeURIComponent(mediaId);
+  const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${mediaPath}`, {
     headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` },
   });
   if (!response.ok) throw new Error(`Meta media lookup returned ${response.status}`);
@@ -1498,7 +1520,7 @@ async function discordApi(route, options = {}) {
       ...(options.headers || {}),
     },
   });
-  if (!res.ok) log(`discord API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) log('Discord API request failed');
   return res;
 }
 
@@ -1529,7 +1551,7 @@ async function discordInboundImages(message) {
 }
 
 async function discordPollLoop() {
-  log(`discord polling mode — channel ${DISCORD_CHANNEL_ID}, every ${POLL_MS / 1000}s`);
+  log('Discord polling mode started');
   let after = state.discordLastMessageId || null;
   let initializing = !after;
   let failures = 0;
@@ -1568,7 +1590,7 @@ async function discordPollLoop() {
       failures = 0;
     } catch (e) {
       failures++;
-      log('discord poll error:', e.message);
+      log('Discord poll failed');
     }
     await new Promise((r) => setTimeout(r, Math.min(POLL_MS * (failures + 1), 60_000)));
   }
@@ -1625,11 +1647,11 @@ async function sendText(to, text) {
 async function sendStatus(to, kind, text) {
   try {
     await sendText(to, text);
-    logEvent('status_sent', { kind, provider: PROVIDER });
+    logEvent('status_sent', { kind });
     return true;
   } catch (e) {
-    log(`status send failed (${kind}):`, e.message);
-    logEvent('status_send_error', { kind, provider: PROVIDER, error: e.message });
+    log('status send failed');
+    logEvent('status_send_error', { kind, error: e.message });
     return false;
   }
 }
@@ -1681,7 +1703,7 @@ async function deliverExecutionTranscript(to, transcript, ok) {
     return false;
   }
   const sent = await messenger.sendFile(to, transcript.path, 'Agent execution log');
-  logEvent('execution_log_sent', { ok: Boolean(sent), provider: PROVIDER, file: path.basename(transcript.path) });
+  logEvent('execution_log_sent', { ok: Boolean(sent), file: path.basename(transcript.path) });
   return Boolean(sent);
 }
 
@@ -1777,10 +1799,10 @@ async function deliverChangeReview(to, snapshotDir, request, outcome, reason = {
       await sendText(to, `Code changes: ${shown}${review.files.length > 4 ? ` +${review.files.length - 4} more` : ''}\nDetailed diff saved; this messenger cannot receive HTML documents yet.`);
     }
   } catch (e) {
-    logEvent('change_review_delivery_error', { provider: PROVIDER, error: e.message });
+    logEvent('change_review_delivery_error', { error: e.message });
     return review;
   }
-  logEvent('change_review_sent', { provider: PROVIDER, files: review.count, file: path.basename(review.path) });
+  logEvent('change_review_sent', { files: review.count, file: path.basename(review.path) });
   return review;
 }
 
@@ -2328,7 +2350,10 @@ async function handleInbound(replyTo, text, sentAtMs = null, attachments = [], c
     }
     const approval = resolveTicketApproval(text, approvableTicketSet);
     if (approval?.kind === 'clarify') {
-      logEvent('ticket_approval_clarification', { prompt: text.slice(0, 120), ticket_set: state.pendingTicketSet?.id || null });
+      logEvent('ticket_approval_clarification', {
+        prompt_chars: text.length,
+        ticket_set: state.pendingTicketSet?.id || null,
+      });
       return sendText(replyTo, approval.message);
     }
     if (approval?.kind === 'approved') {
@@ -2402,8 +2427,8 @@ async function handleInbound(replyTo, text, sentAtMs = null, attachments = [], c
   }
 
   const inboundLagS = sentAtMs ? Math.max(0, Math.round((Date.now() - sentAtMs) / 1000)) : null;
-  log(`prompt${inboundLagS !== null ? ` (lag ${inboundLagS}s)` : ''}: ${text.slice(0, 120)}`);
-  logEvent('inbound', { prompt: text.slice(0, 120), inbound_lag_s: inboundLagS });
+  log('authenticated prompt received');
+  logEvent('inbound', { inbound_lag_s: inboundLagS, prompt_chars: text.length });
   // deterministic status ladder, bridge-sent (never depends on the agent):
   // receipt immediately → "agent running" when the process is actually up →
   // trouble (rate limit / fetch failure) the moment it appears → elapsed
@@ -2441,7 +2466,7 @@ async function handleInbound(replyTo, text, sentAtMs = null, attachments = [], c
   const timers = [];
   const rotated = rotateSessionIfNeeded();
   if (rotated) {
-    log(`session rotated (${rotated})`);
+    log('agent session rotated');
     logEvent('session_rotate', { reason: rotated });
   }
   // Receipt is ordered before agent startup. Previously this was fire-and-forget,
@@ -2862,7 +2887,7 @@ async function handleInbound(replyTo, text, sentAtMs = null, attachments = [], c
     await applyDeferredRestart(replyTo, transcript);
     log('replied with error');
     logEvent('reply_error', { detail: String(reply).trim().slice(0, 500) });
-    logTiming({ prompt: text.slice(0, 80), phone_to_bridge_s: inboundLagS, agent_start_s: agentStartS, run_s: runS, reply_sent_s: Math.round((Date.now() - startMs) / 1000), ok: false, files: 0 });
+    logTiming({ prompt_chars: text.length, phone_to_bridge_s: inboundLagS, agent_start_s: agentStartS, run_s: runS, reply_sent_s: Math.round((Date.now() - startMs) / 1000), ok: false, files: 0 });
     return;
   }
   let changeReview = null;
@@ -2917,7 +2942,7 @@ async function handleInbound(replyTo, text, sentAtMs = null, attachments = [], c
   if ((answeredModelSwitch || result.automaticFallback) && !state.availabilityRecovery) armTemporaryResetDiscovery();
   await applyDeferredRestart(replyTo, transcript);
   log('replied');
-  logTiming({ prompt: text.slice(0, 80), phone_to_bridge_s: inboundLagS, agent_start_s: agentStartS, run_s: runS, reply_sent_s: Math.round((Date.now() - startMs) / 1000), ok: true, files: fileDelivery.delivered, discovered_reports: fileDelivery.discoveredReports, change_review_files: changeReview?.count || 0 });
+  logTiming({ prompt_chars: text.length, phone_to_bridge_s: inboundLagS, agent_start_s: agentStartS, run_s: runS, reply_sent_s: Math.round((Date.now() - startMs) / 1000), ok: true, files: fileDelivery.delivered, discovered_reports: fileDelivery.discoveredReports, change_review_files: changeReview?.count || 0 });
 }
 
 function enqueue(id, from, text, replyTo = from, sentAtMs = null, attachments = [], runOptions = {}) {
@@ -2927,7 +2952,7 @@ function enqueue(id, from, text, replyTo = from, sentAtMs = null, attachments = 
 
   // HARD GATE: only the owner drives the desk
   if (from !== ALLOWED_SENDER) {
-    log(`ignored message from non-allowlisted sender ${from}`);
+    log('ignored message from non-allowlisted sender');
     return;
   }
   if (/^(join|stop)\b/i.test(text)) return; // twilio sandbox control words, not prompts
@@ -2977,7 +3002,7 @@ function enqueue(id, from, text, replyTo = from, sentAtMs = null, attachments = 
     queueDepth++;
     sendText(replyTo, 'Redirecting the active turn. The same agent session will resume with your new instruction.').catch(() => {});
     queue = queue.then(() => handleInbound(replyTo, remoteControl.prompt, sentAtMs, [], continuationSnapshot)).catch((e) => {
-      log('steer handler error:', e);
+      log('steer handler failed');
       logEvent('handler_error', { error: String(e?.message || e), source: 'steer' });
       sendText(replyTo, `Bridge error: ${e?.message || e}`).catch(() => {});
     });
@@ -2988,17 +3013,17 @@ function enqueue(id, from, text, replyTo = from, sentAtMs = null, attachments = 
   // behind a long run with zero acknowledgment)
   if (activeRun) {
     if (queueDepth >= MAX_QUEUE_DEPTH) {
-      logEvent('queue_rejected', { prompt: text.slice(0, 80), max_queue_depth: MAX_QUEUE_DEPTH });
+      logEvent('queue_rejected', { prompt_chars: text.length, max_queue_depth: MAX_QUEUE_DEPTH });
       sendText(replyTo, `🛑 Queue full (${MAX_QUEUE_DEPTH}). This message was not scheduled, preventing an unbounded backlog and token spend. Retry after the current run finishes.`).catch(() => {});
       return;
     }
     const mins = Math.round((Date.now() - activeRun.startedMs) / 60_000);
     queueDepth++;
-    logEvent('queued', { prompt: text.slice(0, 80), behind_mins: mins, position: queueDepth });
+    logEvent('queued', { prompt_chars: text.length, behind_mins: mins, position: queueDepth });
     sendText(replyTo, `📥 Received — queued behind the current run ("${activeRun.prompt.slice(0, 60)}", running ${mins}m${queueDepth > 1 ? `; position ${queueDepth}` : ''}). It starts as soon as that finishes.`).catch(() => {});
   }
   queue = queue.then(() => handleInbound(replyTo, text, sentAtMs, attachments, null, runOptions)).catch((e) => {
-    log('handler error:', e);
+    log('message handler failed');
     logEvent('handler_error', { error: String(e?.message || e) });
     sendText(replyTo, `⚠️ Bridge error: ${e?.message || e}`).catch(() => {});
   });
@@ -3017,7 +3042,7 @@ async function pollOnce(sinceMs) {
     },
   });
   if (!res.ok) {
-    log(`twilio poll ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    log('Twilio poll request failed');
     return;
   }
   const { messages = [] } = await res.json();
@@ -3049,11 +3074,11 @@ async function pollOnce(sinceMs) {
 
 async function pollLoop() {
   const startedAt = Date.now() - 60_000; // small grace window for clock skew
-  log(`twilio polling mode — checking every ${POLL_MS / 1000}s (no inbound port, no tunnel)`);
+  log('Twilio polling mode started');
   let failures = 0;
   for (;;) {
     try { await pollOnce(startedAt); failures = 0; }
-    catch (e) { failures++; log('poll error:', e.message); }
+    catch (e) { failures++; log('Twilio poll failed'); }
     // back off on repeated failures (network down, laptop waking from sleep)
     await new Promise((r) => setTimeout(r, Math.min(POLL_MS * (failures + 1), 60_000)));
   }
@@ -3217,7 +3242,7 @@ const server = http.createServer((req, res) => {
 // activation is deferred until after reply/log delivery and uses kickstart.
 process.on('SIGTERM', () => {
   const dying = activeRun;
-  logEvent('shutdown', dying ? { interrupted: dying.prompt.slice(0, 80) } : {});
+  logEvent('shutdown', dying ? { interrupted_prompt_chars: dying.prompt.length } : {});
   if (!dying) process.exit(0);
   if (dying.brokerExecutionId && state.pendingBrokerExecution?.id === dying.brokerExecutionId) {
     state.pendingBrokerExecution = { ...state.pendingBrokerExecution, status: 'running',
@@ -3240,7 +3265,7 @@ process.on('SIGTERM', () => {
   ]).finally(() => process.exit(0));
 });
 
-logEvent('startup', { provider: PROVIDER, mode: messenger.mode });
+logEvent('startup');
 const expiredImages = cleanupInboundImages(INBOUND_MEDIA_DIR);
 if (expiredImages) logEvent('inbound_image_cleanup', { removed: expiredImages });
 if (migratePendingTicketSet()) logEvent('report_tickets_migrated', { ticket_set: state.pendingTicketSet.id,
@@ -3255,7 +3280,7 @@ migrateLastHandoffChoice();
 armAvailabilityRecovery();
 armTemporaryResetDiscovery();
 server.listen(PORT, '127.0.0.1', () => {
-  log(`bridge control listening on http://127.0.0.1:${PORT} — provider: ${PROVIDER}`);
+  log('bridge control listening on loopback');
 });
 if (messenger.start) messenger.start();
 

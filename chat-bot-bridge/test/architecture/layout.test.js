@@ -32,3 +32,21 @@ test('bridge source and tests use the documented domain layout', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(bridgeRoot, 'package.json'), 'utf8'));
   assert.match(pkg.scripts.test, /test\/\*\/\*\.test\.js/);
 });
+
+test('bridge app constrains sensitive logs, agent dispatch, and Meta media lookup', () => {
+  const app = fs.readFileSync(path.join(bridgeRoot, 'src', 'app', 'bridge-server.js'), 'utf8');
+
+  assert.match(app, /function runRegisteredAgent\(/);
+  assert.match(app, /agent === 'codex'\) return runCodex\(/);
+  assert.match(app, /agent === 'claude'\) return runClaude\(/);
+  assert.doesNotMatch(app, /runners\[[^\]]+\]\s*\(/);
+
+  assert.equal(app.includes("if (!/^\\d{1,64}$/.test(mediaId))"), true);
+  assert.match(app, /encodeURIComponent\(mediaId\)/);
+
+  for (const name of ['PROVIDER', 'PORT', 'POLL_MS', 'DISCORD_CHANNEL_ID', 'ALLOWED_SENDER']) {
+    assert.doesNotMatch(app, new RegExp(`\\blog\\([^\\n]*\\b${name}\\b`));
+  }
+  assert.doesNotMatch(app, /\blog(?:Event|Timing)?\([^\n]*\bprompt:\s*(?:text|dying\.prompt)/);
+  assert.doesNotMatch(app, /\blog\([^\n]*(?:await res\.text|JSON\.stringify\(j\))/);
+});
