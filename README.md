@@ -93,6 +93,8 @@ Four ways to use it:
 **2. Scheduled reports**
 - Run recurring reviews of your watchlist and portfolio.
 - Receive HTML reports with tactical and long-term actions—or an honest *“nothing clears the bar.”*
+- The included scheduler is part of the optional phone bridge, so that bridge process must be
+  running. Without it, run or schedule the normal terminal workflow directly.
 
 **3. Confirmed execution**
 - **Agent recommends → you approve → broker places.**
@@ -252,18 +254,20 @@ questions behave the same way.
 | Command | What it does |
 |---|---|
 | `/status` | Show bridge health, active agent, trading mode, and session status. |
-| `/agent` | Show the current agent preference and fallback order. |
-| `/agent auto` | Use the configured priority and fall back when an agent is rate-limited or unavailable. |
-| `/agent codex` · `/agent claude` | Pin one agent and disable automatic fallback. |
+| `/agent` | Open a numbered picker of configured agent/model pairs with passive availability. |
+| `/agent N` (or a short-lived bare `N`) | Select that exact default agent/model for future runs. |
+| `/agent codex` · `/agent claude` | Open that agent's focused model picker; manual choice does not disable availability fallback. |
 | `/new` | Clear the saved Codex and Claude conversations and start fresh sessions. |
 | `/mode` | Show the current trading mode. |
 | `/mode manual` | Require confirmation for each exact order—the execution kill switch. |
 | `/mode semi` | Propose numbered tickets; execute only the tickets you approve. |
 | `/mode full` | Run autonomous decisions through the validate-only gateway; no broker order is placed. |
+| `/stop` · `/steer TEXT` | Interrupt or redirect the active turn while preserving completed work and resumable state. |
+| `/decide N` | Answer a pending numbered agent decision. |
 | `/help` | Show the available phone commands. |
 
 Everything else is normal conversation. For example: `Run a daily report`, `Analyze META`,
-`Approve 1`, `What changed?`, or `Send me the latest report`.
+`Approve 1`, `Close 2`, `Change the limit`, `What changed?`, or `Send me the latest report`.
 
 ---
 
@@ -374,7 +378,8 @@ supply (see *Portability & capability detection* in `SKILL.md`).
 - [ ] Calls are logged and later scored so confidence can be earned from outcomes.
 
 After the manual flow is reliable, consider weekday pre-market and post-close runs plus a weekly
-review. Scheduled reports still require confirmation before execution.
+review. The included schedules are bridge-backed, and scheduled reports still require confirmation
+before execution.
 
 ### Repository layout
 
@@ -388,6 +393,9 @@ ai-trader-toolbox/
 │   ├── ops/            # setup, privacy, consistency, smoke tests, and packaging
 │   └── report/         # report scaffolding, charts, build, and archive lifecycle
 ├── chat-bot-bridge/    # optional provider-neutral phone connection template
+│   ├── server.js       # stable compatibility entrypoint
+│   ├── src/            # app + agents/broker/control/delivery/reports/runtime domains
+│   └── test/           # mirrored domain tests
 ├── docs/               # manuals, policies, ADRs, and sanitized demonstrations
 ├── journal/            # local user memory and outcomes; private files are git-ignored
 └── reports/            # current HTML, archived HTML, examples, and ignored build/cache state

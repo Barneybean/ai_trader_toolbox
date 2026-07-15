@@ -27,6 +27,10 @@ can also auto-detect from the user-configured provider priority order:
 
 **Zero npm dependencies**: the server uses only Node built-ins (`http`, `crypto`, `fetch`).
 
+Implementation is organized by responsibility under `src/` (`agents`, `broker`, `control`,
+`delivery`, `reports`, and `runtime`) with mirrored tests under `test/`. Root `server.js` and
+`scheduled-run.js` remain stable compatibility entrypoints. See [`DEVELOPMENT.md`](DEVELOPMENT.md).
+
 Adding another app now requires one adapter with `send`, optional `sendFile` and `typing`,
 `start`, and its text limit. Desk commands, serialization, sessions, allowlisting, status
 messages, and file security remain provider-independent.
@@ -152,6 +156,8 @@ stays marked (with a reset time when known) across bridge restart and model hand
 Those observations live only in the git-ignored, bounded `model-availability.json` runtime ledger;
 the public repository ships no user's availability history. Automatic fallback skips a model while
 its observed limit is current and considers at most three configured models per registered agent.
+It tries eligible models from the preferred agent before crossing to another provider, preserving
+the lower-cost session boundary whenever possible.
 
 When the agent needs a material choice mid-run it does not guess — it posts a numbered decision and
 pauses; your `/decide N` resumes that session. When a phone interaction changes repository files, the
@@ -172,19 +178,34 @@ Every successful run automatically attaches each new, complete, self-contained
 delivery ledger, so the same document is not sent twice. Files must resolve inside this repository;
 hidden files, bridge runtime/config files, symlink escapes, and oversized artifacts are rejected.
 
-If a report alone reaches its tool limit before a complete HTML artifact exists, the bridge may make
-one fresh-session, report-only completion pass with a smaller bounded budget (24 calls by default).
-The pass reuses existing work, keeps repeated-call protection enabled, and cannot write broker
-orders. A complete report recovered from a failed run is still attached; incomplete scaffolds are
-not. Execution transcripts remain local unless `PHONE_EXECUTION_LOG` explicitly enables delivery.
+Successful, varied tool results count as progress, so production report runs have no default
+tool-call or streamed-output ceiling. The configured wall-clock timeout still applies, and circuit
+guards stop repeated semantic calls, repeated identical failures, or sustained failures without a
+successful result. Optional finite ceilings remain available for diagnostics and tests.
 
-Scheduled pre-market, optional mid-market, and post-market requests are idempotent by local calendar
-day. A duplicate is skipped unless the scheduler explicitly sets `force: true`; a queue-full rejection
-does not consume that day's run slot. Invoke the optional intraday update with
+If a report stops at one of those guards before a complete HTML artifact exists, the bridge may make
+one fresh-session, report-only completion pass. The pass reuses existing work, keeps the same
+progress guards enabled, and cannot write broker orders. A complete report recovered from a failed
+run is still attached; incomplete scaffolds are not. Scheduled reports build one read-only broker
+snapshot rather than polling the same endpoints; recovery reuses an already completed snapshot
+instead of fetching it again. An ordinary non-report run stopped by the same loop/stall guards may
+retry once with the same agent; broker-execution runs never take that retry. There is no recursive
+recovery or autonomous repair. Execution transcripts remain local unless `PHONE_EXECUTION_LOG`
+explicitly enables delivery.
+
+Repeated-call detection fingerprints observable semantic tool input. Opaque web-search events that
+omit their query still count against the total run budget, but they are not falsely classified as
+identical calls; genuinely repeated queries and stable MCP/command inputs remain protected.
+
+Scheduled pre-market, optional mid-market, and post-market requests allow intentional and recovery
+re-runs, which receive collision-safe report names. Only a near-simultaneous double-fire of the same
+kind is debounced; `force: true` and plumbing tests bypass the debounce. Invoke the optional update with
 `node scheduled-run.js midmarket`; it checks the morning plan rather than re-underwriting the day.
 Each accepted report run preserves prior artifacts rather than overwriting them.
 When semi-auto output contains actionable tickets, the phone receives a compact numbered follow-up
-with the exact approval wording.
+with the exact approval wording. Users may discuss a pending ticket naturally, revise it into a new
+numbered proposal, or use `close N`/`close all` to remove it from the local queue without touching a
+broker order. A reconciled report that does not re-propose an older ticket retires it automatically.
 
 ## Troubleshooting
 
