@@ -190,8 +190,18 @@ It opens with the call — what to do, in one screen:
 </p>
 
 <details>
-<summary><b>📸 More pages from the sample report</b> (scorecards, layer map, chip footprint, signals, forecast fan …)</summary>
+<summary><b>📸 More pages from the sample report</b> (role decisions, scorecards, layer map, chip footprint, signals, forecast fan …)</summary>
 <br>
+
+**Role-by-role decision** — independent specialist findings, Bull/Bear tension, the PM plan, and
+the Research Manager/Risk Judge/CIO adjudication, with each row showing how it changed the action.
+
+<p align="center">
+  <img src="docs/sample-report/08-role-summary.png" width="680" alt="Per-stock desk role summary with independent conclusions and decision impact from Fundamental, Quant and Flow, Sentiment and Catalyst, Macro and Sector, Bull, Bear, PM and Trader, Research Manager, Risk Judge, and CIO roles">
+</p>
+
+_Dated SOFI example from July 16, 2026, shown only to illustrate the role-decision format; not a
+current recommendation._
 
 **Decision scorecards** — call, trade plan, and money flow.
 
@@ -234,8 +244,8 @@ It opens with the call — what to do, in one screen:
 The format is **Summary → Action → Evidence**, with plain-language callouts, charts, two time
 horizons, and a sized trade plan.
 
-> Illustrative only — a demo of the output format on a fictional $2,000 account, not investment
-> advice.
+> Illustrative only — the sample account is fictional. The role-summary panel is a dated layout
+> example, not a current recommendation or investment advice.
 
 ### From your phone
 
