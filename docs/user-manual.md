@@ -33,6 +33,26 @@ Examples:
 - `Analyze META.`
 - `What changed since the last run?`
 
+## Verify a rolling position plan
+
+Use the optional position manager when you want to test whether scaling out and buying back added
+value, or whether a proposed tranche ladder fits the desk's risk limits:
+
+```bash
+python3 scripts/analysis/position_manager.py /path/to/local-plan.json
+python3 scripts/analysis/position_manager.py /path/to/local-plan.json --json
+```
+
+The local JSON supplies a symbol, starting cash, current and benchmark prices, the complete buy/sell
+ledger (including fees), and—optionally—a stop plus weighted buy tranches. Run the script with
+`--help` to see a fictional input. It reports reconciled cash, shares, average cost, realized and
+unrealized P&L, total return versus buy-and-hold, and a plan capped by cash, concentration, and
+entry-to-stop account risk.
+
+The calculation uses average cost, not tax lots. It does not fetch prices, judge whether the levels
+are valid, persist the ledger, or place an order. Keep the input file outside git and run the tax
+check before acting on a sale.
+
 ---
 
 ## Modes and commands
