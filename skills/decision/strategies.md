@@ -52,7 +52,28 @@ Reference which lever a recommendation pulls, so the user sees the trade-off.
 
 ---
 
-## 4. Mandatory participation for top-decile setups
+## 4. Verify rolling position management
+
+Scaling out into strength and rebuilding on a qualified pullback can improve cash flexibility, but
+it is not free alpha. Every extra decision can introduce fees, tax drag, slippage, and whipsaw. More
+shares at the end is not proof of success; **after-cost total portfolio value versus the same-period
+buy-and-hold benchmark** is the test.
+
+When a user supplies a complete local transaction ledger and wants to evaluate or plan a roll, run:
+
+```bash
+python3 scripts/analysis/position_manager.py <local-plan.json>
+```
+
+The engine uses documented average-cost accounting, reconciles cash and P&L, and limits proposed
+buy tranches by the binding available-cash, per-name concentration, and entry-to-stop account-risk
+caps. The entry levels and stop remain underwritten desk inputs: the engine audits their math; it
+does not turn a chart story into a signal. Reject oversold ledgers, impossible stops, and any plan
+whose apparent advantage is only a larger share count. Apply `tax-aware.md` before acting on a sell.
+
+---
+
+## 5. Mandatory participation for top-decile setups
 
 A call is a **must-buy** only when all four conditions hold:
 

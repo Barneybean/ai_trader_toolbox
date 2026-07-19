@@ -18,6 +18,7 @@ ownership rules live in [`../chat-bot-bridge/DEVELOPMENT.md`](../chat-bot-bridge
 | `forecast.py` | Quantified odds when coiled/testing: squeeze percentile, historical analogs, Monte-Carlo cone, first-passage |
 | `value_radar.py` | ≥30%-undervaluation finder: fair value = median of ≥2 legs, washed+basing gate → BUY-CANDIDATE / WAIT-KNIFE / PASS |
 | `exit_radar.py` | Sell-timing on winners/spikers: six distribution tells → RIDE / TIGHTEN / TRIM / EXIT + chandelier stop ladder |
+| `position_manager.py` | Replay a rolling-position ledger, compare it with buy-and-hold after fees, and cap staged adds by cash, concentration, and stop risk ([tests](analysis/test_position_manager.py)) |
 | `rotation_radar.py` | Sector-ETF sweep vs SPY → COOLING (trim review) / TURNING (hunt) labels |
 | `reverse_dcf.py` | What growth the current price implies (the expectations bar) |
 | `quality_gate.py` | Is the business good enough to underwrite? (margins/returns/balance-sheet gates, with justified exemptions) |

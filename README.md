@@ -428,12 +428,18 @@ Ask your terminal agent in plain language:
 3. `Run a full analysis on META.`
 4. `Schedule a complete daily report before the market opens each trading day.`
 5. `Switch to full shadow mode and validate the proposed tickets.`
+6. `Evaluate my rolling position plan from this local JSON file.`
 
 Reports and analyses always use the full decision-grade pipeline. The normal flow is **report →
 user review → approve exact tickets → AI previews and executes only those tickets → report and log
 fills.** Experimental full mode is currently a validate-only shadow: it independently decides and
 gates proposed tickets, records rejects, and never calls broker placement. Live autonomy remains
 disabled until the published integration and sandbox gates are complete.
+
+For staged entries and exits, [`position_manager.py`](scripts/analysis/position_manager.py) can
+replay a complete local ledger, compare the after-fee result with buy-and-hold, and cap proposed
+tranches by cash, concentration, and stop risk. It is an advisory calculator: you supply the levels,
+private account data stays in your local input file, and it never sends an order.
 
 ---
 

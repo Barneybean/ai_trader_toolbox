@@ -59,3 +59,4 @@ Routine bug fixes, copy edits, and new reference content don't need one.
 - [ADR-0036](0036-bridge-runtime-boundary-and-domain-layout.md) — Bridge runtime boundary and domain layout — Accepted
 - [ADR-0037](0037-preferred-agent-models-before-cross-provider-fallback.md) — Try preferred-agent models before cross-provider fallback — Accepted
 - [ADR-0038](0038-agent-run-budgets-are-progress-aware.md) — Agent-run budgets are progress-aware — Accepted
+- [ADR-0039](0039-rolling-position-management-is-an-audited-plan.md) — Rolling position management is an audited plan — Accepted

@@ -112,6 +112,13 @@ def smoke_commands(files: list[str]) -> tuple[list[tuple[str, list[str], Path]],
     has_js = any(f.endswith(".js") for f in files)
     has_json = any(f.endswith(".json") for f in files)
     touches_analysis = any(f.startswith("scripts/analysis/") for f in files)
+    touches_position_manager = any(
+        f in {
+            "scripts/analysis/position_manager.py",
+            "scripts/analysis/test_position_manager.py",
+        }
+        for f in files
+    )
     touches_journal = any(f.startswith("scripts/journal/") for f in files)
     touches_report = any(f.startswith("scripts/report/") for f in files)
     touches_ops = any(f.startswith("scripts/ops/") for f in files)
@@ -158,6 +165,16 @@ def smoke_commands(files: list[str]) -> tuple[list[tuple[str, list[str], Path]],
             ROOT,
         ))
         review_notes.append("Spot-check the analysis outputs against the report expectations.")
+
+    if touches_position_manager:
+        commands.append((
+            "rolling position manager tests",
+            [sys.executable, "scripts/analysis/test_position_manager.py"],
+            ROOT,
+        ))
+        review_notes.append(
+            "Confirm rolling plans remain advisory and bind on cash, concentration, or stop risk."
+        )
 
     if touches_journal:
         commands.append((
