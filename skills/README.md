@@ -16,6 +16,7 @@ layer. Sub-skills are grouped by capability under `skills/`.
 - `edge/variant-perception.md` — the core edge: find what isn't priced; the required variant statement, edge taxonomy, deep-research playbook.
 - `edge/thematic-waves.md` — secular-wave / capital-rotation lens; the AI wave-map; how to find/time/size the multi-bagger.
 - `edge/smart-money.md` — insider Form-4 & institutional flows as weighted evidence (buys at bottoms vs. selling into strength).
+- `edge/channel-mining.md` — followed-channel transcripts as evidence: a local [YouTube Transcriber](https://github.com/Barneybean/youtube-transcriber) service + `../scripts/ops/transcribe_channel.py` build a transcript library, and the distillation protocol (conflict review → insight-registry hypotheses) turns them into lenses. Underwrite, never chase.
 
 ## analysis/ — how to analyze a name
 - `analysis/quant-levels.md` — the level engine: support/resistance map, ADX, momentum, ATR stops, RR/EV (drives `../scripts/analysis/indicators.py`).
